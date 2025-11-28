@@ -20,7 +20,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### 𖣘 Fan
 
-    Topic:
+**Topic:**
+    
     home/actuators/fan
 
 **Message Content:**
@@ -31,7 +32,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### 💡 Lights -- Floor 1
 
-    Topic:
+**Topic:**
+
     home/actuators/lights/floor1
 
 **Message Content:**
@@ -42,7 +44,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### 💡 Lights -- Floor 2
 
-    Topic:
+**Topic:**
+
     home/actuators/lights/floor2
 
 **Message Content:**
@@ -53,7 +56,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### 💡 Lights -- Landscape
 
-    Topic:
+**Topic:**
+    
     home/actuators/lights/landscape
 
 **Message Content:**
@@ -64,7 +68,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### 💡 Lights -- RGB
 
-    Topic:
+**Topic:**
+
     home/actuators/lights/rgb
 
 **Message Content:**
@@ -75,7 +80,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### 🚨 Buzzer
 
-    Topic:
+**Topic:**
+
     home/actuators/buzzer
 
 **Message Content:**
@@ -86,7 +92,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### 🚪 Garage Motor
 
-    Topic:
+**Topic:**
+
     home/actuators/motors/garage
 
 **Message Content:**
@@ -97,7 +104,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### 🪟 Front Window Motor
 
-    Topic:
+**Topic:**
+
     home/actuators/motors/frontwindow
 
 **Message Content:**
@@ -108,7 +116,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### 🪟 Side Window Motor
 
-    Topic:
+**Topic:**
+
     home/actuators/motors/sidewindow
 
 **Message Content:**
@@ -119,7 +128,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### 🚪 Door Motor
 
-    Topic:
+ **Topic:**
+ 
     home/actuators/motors/door
 
 **Message Content:**
@@ -136,7 +146,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### Gas Sensor
 
-    Topic:
+**Topic:**
+
     home/sensors/gas
 
 **Message Content:**
@@ -147,7 +158,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### LDR Sensor
 
-    Topic:
+**Topic:**
+
     home/sensors/ldr
 
 **Message Content:**
@@ -158,7 +170,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### Rain Sensor
 
-    Topic:
+**Topic:**
+
     home/sensors/rain
 
 **Message Content:**
@@ -169,7 +182,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### Voltage Sensor
 
-    Topic:
+**Topic:**
+
     home/sensors/voltage
 
 **Message Content:**
@@ -180,7 +194,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### Current Sensor
 
-    Topic:
+**Topic:**
+
     home/sensors/current
 
 **Message Content:**
@@ -191,7 +206,8 @@ This document defines the MQTT messages used in the smart home system.
 
 ### Humidity Sensor
 
-    Topic:
+**Topic:**
+
     home/sensors/humidity
 
 **Message Content:**
