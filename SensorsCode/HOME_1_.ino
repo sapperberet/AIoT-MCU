@@ -4,7 +4,7 @@
 #include <ArduinoJson.h>    // <--- (Required for compatibility)
 #include <DHT.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_MQ135.h>
+#include <MQ135.h>
 #include <Servo.h>
 
 //=========================================================
@@ -49,7 +49,7 @@ Servo servoGate;
 //SETUP FOR SENSORS
 #define DHT_TYPE DHT22
 DHT dht(DHT_PIN, DHT_TYPE);
-Adafruit_MQ135 mq135 = Adafruit_MQ135(MQ135_PIN);
+MQ135 mq135 = MQ135(MQ135_PIN);
 
 // SIMULATED FLAG FOR SOLAR PANEL STATUS
 bool solarActive = false;
@@ -100,7 +100,7 @@ IPAddress subnetBroadcast(IPAddress ip, IPAddress mask) {
 }
 
 bool parseAdvert(const char* json) {
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   if (deserializeJson(doc, json)) return false;
   const char* name = doc["name"] | "";
   const char* ip   = doc["ip"]   | "";
@@ -136,7 +136,7 @@ bool discoverPassive(uint32_t ms = 3000) {
 bool discoverActive(uint32_t ms = 3000) {
   Serial.printf("[DISCOVER] active query %u ms\n", ms);
   udp.begin(BEACON_PORT); 
-  StaticJsonDocument<128> q;
+  JsonDocument q;
   q["type"] = "WHO_IS";
   q["name"] = BEACON_NAME;
   char qbuf[128]; size_t qlen = serializeJson(q, qbuf, sizeof(qbuf));
@@ -181,14 +181,14 @@ void ensureWifi() {
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.print("WiFi connecting");
-  while (WiFi.status() != WL_CONNECTED) { delay(250); Serial.print("."); }
+  Serial.printf("WiFi connecting");
+  while (WiFi.status() != WL_CONNECTED) { delay(250); Serial.printf("."); }
   Serial.printf("\nWiFi OK. IP: %s\n", WiFi.localIP().toString().c_str());
 }
 
 // MQTT Callback Function (Your original callback function)
 void callback(char* topic, byte* message, unsigned int length) {
-  Serial.print("Message received on topic: ");
+  Serial.printf("Message received on topic: ");
   Serial.println(topic);
 
   String messageTemp;
@@ -196,7 +196,7 @@ void callback(char* topic, byte* message, unsigned int length) {
     messageTemp += (char)message[i];
   }
 
-  Serial.print("Message: ");
+  Serial.printf("Message: ");
   Serial.println(messageTemp);
 
   // CONTROL IN APPLICATION (From your code)
@@ -262,13 +262,12 @@ void ensureMqtt() {
   }
 }
 
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/******************************************************************************/
+/* The following is the setup function, which will run once in the program */
 void setup() {
   Serial.begin(115200);
   dht.begin();
 
-  // (All your original Pin definitions)
   pinMode(FAN_ENA, OUTPUT);
   pinMode(FAN_IN1, OUTPUT);
   pinMode(FAN_IN2, OUTPUT);
@@ -283,6 +282,7 @@ void setup() {
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
   pinMode(BLUE_PIN, OUTPUT);
+  
   servoWindow1.attach(SERVO_WINDOW1_PIN);
   servoWindow2.attach(SERVO_WINDOW2_PIN);
   servoDoor.attach(SERVO_DOOR_PIN);
@@ -295,8 +295,11 @@ void setup() {
   ensureWifi();
   ensureMqtt();
 }
+/******************************************************************************/
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/******************************************************************************/
+/* The follosing is the loop function, which will loop over and over through the program */
 void loop() {
   // (Connecting using the new method - Non-Blocking)
   if (WiFi.status() != WL_CONNECTED) ensureWifi();
@@ -328,13 +331,13 @@ void loop() {
     int lightLevel = analogRead(LDR_PIN);
     int rain = digitalRead(RAIN_PIN);
 
-    Serial.println("------ SENSOR DATA ------");
-    Serial.print("Temp: "); Serial.println(temperature);
-    Serial.print("Humidity: "); Serial.println(humidity);
-    Serial.print("Smoke: "); Serial.println(smoke);
-    Serial.print("Flame: "); Serial.println(flame);
-    Serial.print("Light: "); Serial.println(lightLevel);
-    Serial.print("Rain: "); Serial.println(rain);
+    Serial.printf("------ SENSORS DATA ------\n");
+    Serial.printf("Temp: "); Serial.println(temperature);
+    Serial.printf("Humidity: "); Serial.println(humidity);
+    Serial.printf("Smoke: "); Serial.println(smoke);
+    Serial.printf("Flame: "); Serial.println(flame);
+    Serial.printf("Light: "); Serial.println(lightLevel);
+    Serial.printf("Rain: "); Serial.println(rain);
     Serial.println("-------------------------");
 
     // SMOKE & FLAME ALARM
@@ -399,3 +402,4 @@ void loop() {
     }
   }
 }
+/******************************************************************************/
