@@ -1,215 +1,245 @@
 # Smart Home MQTT Messages
 
-This document defines the MQTT messages used in the smart home system.
+<div dir="rtl">
+هذا المستند يوضح رسائل الـ MQTT المستخدمة في نظام المنزل الذكي.
+</div>
 
--   **Actuators:**\
-    **المتحكم (ESP) يستقبل هذه الرسائل من الـ MQTT Broker لتنفيذ
-    الأوامر.**
+- **Actuators:**  
+  <div dir="rtl">المتحكم (ESP) يستقبل هذه الرسائل من الـ MQTT Broker لتنفيذ الأوامر.</div>
 
--   **Sensors:**\
-    **المتحكم (ESP) يرسل هذه الرسائل إلى الـ MQTT Broker بعد قراءة القيم
-    من الحساسات.**
+- **Sensors:**  
+  <div dir="rtl">المتحكم (ESP) يرسل هذه الرسائل إلى الـ MQTT Broker بعد قراءة القيم من الحساسات.</div>
 
-------------------------------------------------------------------------
+---
 
-## 🔧 Actuators
+## 🔧 Actuators  
+*(المتحكم يستقبل هذه الرسائل)*
 
-### *(المتحكم يستقبل هذه الرسائل)*
-
-------------------------------------------------------------------------
+---
 
 ### 𖣘 Fan
 
 **Topic:**
-    
-    home/actuators/fan
+```
+home/actuators/fan
+```
 
 **Message Content:**
+```
+in / out / on / off
+```
 
-    in / out / on / off
+---
 
-------------------------------------------------------------------------
-
-### 💡 Lights -- Floor 1
+### 💡 Lights — Floor 1
 
 **Topic:**
-
-    home/actuators/lights/floor1
+```
+home/actuators/lights/floor1
+```
 
 **Message Content:**
+```
+on / off
+```
 
-    on / off
+---
 
-------------------------------------------------------------------------
-
-### 💡 Lights -- Floor 2
+### 💡 Lights — Floor 2
 
 **Topic:**
-
-    home/actuators/lights/floor2
+```
+home/actuators/lights/floor2
+```
 
 **Message Content:**
+```
+on / off
+```
 
-    on / off
+---
 
-------------------------------------------------------------------------
-
-### 💡 Lights -- Landscape
+### 💡 Lights — Landscape
 
 **Topic:**
-    
-    home/actuators/lights/landscape
+```
+home/actuators/lights/landscape
+```
 
 **Message Content:**
+```
+on / off
+```
 
-    on / off
+---
 
-------------------------------------------------------------------------
-
-### 💡 Lights -- RGB
+### 💡 Lights — RGB
 
 **Topic:**
-
-    home/actuators/lights/rgb
+```
+home/actuators/lights/rgb
+```
 
 **Message Content:**
+```
+b <int_value_of_brightness> / c <string_value_of_color>
+```
 
-    b <int_value_of_brightness> / c <string_value_of_color>
-
-------------------------------------------------------------------------
+---
 
 ### 🚨 Buzzer
 
 **Topic:**
-
-    home/actuators/buzzer
+```
+home/actuators/buzzer
+```
 
 **Message Content:**
+```
+on / off
+```
 
-    on / off
-
-------------------------------------------------------------------------
+---
 
 ### 🚪 Garage Motor
 
 **Topic:**
-
-    home/actuators/motors/garage
+```
+home/actuators/motors/garage
+```
 
 **Message Content:**
+```
+open / close
+```
 
-    open / close
-
-------------------------------------------------------------------------
+---
 
 ### 🪟 Front Window Motor
 
 **Topic:**
-
-    home/actuators/motors/frontwindow
+```
+home/actuators/motors/frontwindow
+```
 
 **Message Content:**
+```
+open / close
+```
 
-    open / close
-
-------------------------------------------------------------------------
+---
 
 ### 🪟 Side Window Motor
 
 **Topic:**
-
-    home/actuators/motors/sidewindow
+```
+home/actuators/motors/sidewindow
+```
 
 **Message Content:**
+```
+open / close
+```
 
-    open / close
-
-------------------------------------------------------------------------
+---
 
 ### 🚪 Door Motor
 
- **Topic:**
- 
-    home/actuators/motors/door
+**Topic:**
+```
+home/actuators/motors/door
+```
 
 **Message Content:**
+```
+open / close
+```
 
-    open / close
+---
 
-------------------------------------------------------------------------
+## 🌡️ Sensors  
+*(المتحكم يرسل هذه الرسائل)*
 
-## 🌡️ Sensors
-
-### *(المتحكم يرسل هذه الرسائل)*
-
-------------------------------------------------------------------------
+---
 
 ### Gas Sensor
 
 **Topic:**
-
-    home/sensors/gas
+```
+home/sensors/gas
+```
 
 **Message Content:**
+```
+<gas_sensor_value>
+```
 
-    <gas_sensor_value>
-
-------------------------------------------------------------------------
+---
 
 ### LDR Sensor
 
 **Topic:**
-
-    home/sensors/ldr
+```
+home/sensors/ldr
+```
 
 **Message Content:**
+```
+<ldr_sensor_value>
+```
 
-    <ldr_sensor_value>
-
-------------------------------------------------------------------------
+---
 
 ### Rain Sensor
 
 **Topic:**
-
-    home/sensors/rain
+```
+home/sensors/rain
+```
 
 **Message Content:**
+```
+<rain_sensor_value>
+```
 
-    <rain_sensor_value>
-
-------------------------------------------------------------------------
+---
 
 ### Voltage Sensor
 
 **Topic:**
-
-    home/sensors/voltage
+```
+home/sensors/voltage
+```
 
 **Message Content:**
+```
+<voltage_value>
+```
 
-    <voltage_value>
-
-------------------------------------------------------------------------
+---
 
 ### Current Sensor
 
 **Topic:**
-
-    home/sensors/current
+```
+home/sensors/current
+```
 
 **Message Content:**
+```
+<current_value>
+```
 
-    <current_value>
-
-------------------------------------------------------------------------
+---
 
 ### Humidity Sensor
 
 **Topic:**
-
-    home/sensors/humidity
+```
+home/sensors/humidity
+```
 
 **Message Content:**
-
-    <humidity_value>
+```
+<humidity_value>
+```
