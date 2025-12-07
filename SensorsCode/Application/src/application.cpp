@@ -48,10 +48,32 @@ const char *BEACON_NAME = "face-broker";
 /************************End of UDP beacon settings **********/
 
 /***********************MQTT topics***************************/
-const char *TOPIC_CONTROL = "home/control"; // <--- (To receive commands)
-const char *TOPIC_SENSORS = "home/sensors"; // <--- (To send sensor data)
-const char *TOPIC_STATUS =
-    "home/smart-system/status"; // (LWT Topic for this device)
+const char *TOPIC_CONTROL = "home/control";
+const char *TOPIC_SENSORS = "home/sensors";
+const char *TOPIC_STATUS = "home/smart-system/status";
+
+/**********Actuators topics***********/
+const char *TOPIC_FAN = "home/actuators/fan";
+const char *TOPIC_LIGHT_FLOOR1 = "home/actuators/lights/floor1";
+const char *TOPIC_LIGHT_FLOOR2 = "home/actuators/lights/floor2";
+const char *TOPIC_LIGHT_LANDSCAPE = "home/actuators/lights/landscape";
+const char *TOPIC_LIGHT_RGB = "home/actuators/lights/rgb";
+const char *TOPIC_BUZZER = "home/actuators/buzzer";
+const char *TOPIC_MOTOR_GARAGE = "home/actuators/motors/garage";
+const char *TOPIC_MOTOR_FRONT_WIN = "home/actuators/motors/frontwindow";
+const char *TOPIC_MOTOR_SIDE_WIN = "home/actuators/motors/sidewindow";
+const char *TOPIC_MOTOR_DOOR = "home/actuators/motors/door";
+/*************************************/
+
+/************Sensors topics***********/
+const char *TOPIC_GAS = "home/sensors/gas";
+const char *TOPIC_LDR = "home/sensors/ldr";
+const char *TOPIC_RAIN = "home/sensors/rain";
+const char *TOPIC_VOLTAGE = "home/sensors/voltage";
+const char *TOPIC_CURRENT = "home/sensors/current";
+const char *TOPIC_HUMIDITY = "home/sensors/humidity";
+/*************************************/
+
 /*************************************************************/
 
 /*******************************End of MCU globals*****************************/
@@ -184,8 +206,125 @@ void callBack(char *topic, byte *message, unsigned int length) {
   Serial.printf("Message: ");
   Serial.println(messageTemp);
 
-  // CONTROL IN APPLICATION (From your code)
-  if (String(topic) == TOPIC_CONTROL) {
+  /************Actuating logic*****************/
+  /* FAN */
+  if (String(topic) == TOPIC_FAN) {
+    if (messageTemp == "in") {
+      analogWrite(FAN_ENA, 200);
+      digitalWrite(FAN_IN1, HIGH);
+      digitalWrite(FAN_IN2, LOW);
+    } else if (messageTemp == "out") {
+      analogWrite(FAN_ENA, 200);
+      digitalWrite(FAN_IN1, LOW);
+      digitalWrite(FAN_IN2, HIGH);
+    } else if (messageTemp == "on") {
+      analogWrite(FAN_ENA, 200);
+    } else if (messageTemp == "off") {
+      analogWrite(FAN_ENA, 0);
+    } else { /*Do Nothing*/
+    }
+  } else { /*Do Nothing*/
+  }
+
+  /* LIGHT FLOOR1 */
+  if (String(topic) == TOPIC_LIGHT_FLOOR1) {
+    if (messageTemp == "on") {
+      digitalWrite(LED_FLOOR1, HIGH);
+    } else if (messageTemp == "off") {
+      digitalWrite(LED_FLOOR1, LOW);
+    } else { /*Do Nothing*/
+    }
+  } else { /*Do Nothing*/
+  }
+
+  /* FLOOR2 */
+  if (String(topic) == TOPIC_LIGHT_FLOOR2) {
+    if (messageTemp == "on") {
+      digitalWrite(LED_FLOOR2, HIGH);
+    } else if (messageTemp == "off") {
+      digitalWrite(LED_FLOOR2, LOW);
+    } else { /*Do Nothing*/
+    }
+  } else { /*Do Nothing*/
+  }
+
+  /* LANDSCAPE */
+  if (String(topic) == TOPIC_LIGHT_LANDSCAPE) {
+    if (messageTemp == "on") {
+      digitalWrite(LED_LANDSCAPE, HIGH);
+    } else if (messageTemp == "off") {
+      digitalWrite(LED_LANDSCAPE, LOW);
+    } else { /*Do nothing*/
+    }
+  } else { /*Do Nothing*/
+  }
+
+  /* RGB */
+  if (String(topic) == TOPIC_LIGHT_RGB) {
+    if (messageTemp.startsWith("b ")) {
+      int val = messageTemp.substring(2).toInt();
+      setRGB(val, val, val);
+    } else if (messageTemp.startsWith("c ")) {
+      String c = messageTemp.substring(2);
+
+      if (c == "red") {
+        setRGB(255, 0, 0);
+      }
+
+      else if (c == "green") {
+        setRGB(0, 255, 0);
+      } else if (c == "blue") {
+        setRGB(0, 0, 255);
+      } else { /*Do Nothing*/
+      }
+    } else { /*Do Nothing*/
+    }
+  }
+
+  /* BUZZER */
+  if (String(topic) == TOPIC_BUZZER) {
+    if (messageTemp == "on")
+      digitalWrite(BUZZER_PIN, HIGH);
+    if (messageTemp == "off")
+      digitalWrite(BUZZER_PIN, LOW);
+  } else { /*Do Nothing*/
+  }
+
+  /* MOTORS */
+  if (String(topic) == TOPIC_MOTOR_GARAGE) {
+    if (messageTemp == "open")
+      servoGarage.write(90);
+    if (messageTemp == "close")
+      servoGarage.write(0);
+  } else { /*Do Nothing*/
+  }
+
+  if (String(topic) == TOPIC_MOTOR_FRONT_WIN) {
+    if (messageTemp == "open")
+      servoWindow1.write(90);
+    if (messageTemp == "close")
+      servoWindow1.write(0);
+  } else { /*Do nothing*/
+  }
+
+  if (String(topic) == TOPIC_MOTOR_SIDE_WIN) {
+    if (messageTemp == "open")
+      servoWindow2.write(90);
+    if (messageTemp == "close")
+      servoWindow2.write(0);
+  } else { /*Do nothing*/
+  }
+
+  if (String(topic) == TOPIC_MOTOR_DOOR) {
+    if (messageTemp == "open")
+      servoDoor.write(90);
+    if (messageTemp == "close")
+      servoDoor.write(0);
+  } else { /*Do nothing*/
+  }
+
+  /********Ending of actuating logic***********/
+  /*if (String(topic) == TOPIC_CONTROL) {
     if (messageTemp == "lights_on") {
       digitalWrite(LED_FLOOR1, HIGH);
       digitalWrite(LED_FLOOR2, HIGH);
@@ -201,43 +340,53 @@ void callBack(char *topic, byte *message, unsigned int length) {
     } else if (messageTemp == "fan_off") {
       analogWrite(FAN_ENA, 0);
     }
-    /* Adding other commands here */
-  }
+  }*/
 }
 
 void ensureMqtt() {
-  if (client.connected())
+  if (client.connected()) {
     return;
-
-  // 1. Discover server (Instead of static IP)
-  if (!discoverBroker(12000)) {
-    Serial.println("[MQTT] discovery failed; retry soon");
-    delay(1500);
-    return;
+  } else { /*Do Nothing*/
   }
 
-  // 2. Setup connection
-  client.setServer(brokerIp, brokerPort);
-  client.setCallback(callBack); // <--- Using your callBack
+  if (!discoverBroker(12000)) {
+    Serial.println("===> MQTT DISCOVERY FAILED <===");
+    delay(1500);
+    return;
+  } else { /*Do Nothing*/
+  }
+
+  client.setServer(brokerIp, brokerPort); /*Setup connetion*/
+  client.setCallback(callBack);           /*Using the callBack*/
 
   const char *willTopic = TOPIC_STATUS;
   const char *willMsg = "OFFLINE";
 
-  // <--- (Important) Unique Client ID, different from the first code
-  clientId = "SmartHomeESP32-" + String((uint32_t)ESP.getEfuseMac(), HEX);
-  Serial.printf("[MQTT] connect to %s:%u as %s\n", brokerIp.toString().c_str(),
-                brokerPort, clientId.c_str());
+  clientId = "SmartHomeESP32-" +
+             String((uint32_t)ESP.getEfuseMac(), HEX); /*Cliend ID*/
+  Serial.printf("===> MQTT CONNECTED TO %s:%u AS %s <===\n",
+                brokerIp.toString().c_str(), brokerPort, clientId.c_str());
 
-  // 3. Connect with LWT
-  bool ok = client.connect(clientId.c_str(), nullptr, nullptr, willTopic, 0,
-                           true, willMsg);
+  bool okConnected =
+      client.connect(clientId.c_str(), nullptr, nullptr, willTopic, 0, true,
+                     willMsg); /*Connecting to client*/
 
-  if (ok) {
-    Serial.println("[MQTT] connected");
-    client.subscribe(TOPIC_CONTROL); // <--- Subscribing to your topic
+  if (okConnected) { /*Connecting to topics*/
+    Serial.println("===> MQTT CONNECTED <===");
+    client.subscribe(TOPIC_CONTROL); /*Subscribing to topic*/
     client.publish(TOPIC_STATUS, "ONLINE", true);
+    client.subscribe(TOPIC_FAN);             /*Subsribing to fan*/
+    client.subscribe(TOPIC_LIGHT_FLOOR1);    /*Subsribing to Light floor 1*/
+    client.subscribe(TOPIC_LIGHT_FLOOR2);    /*Subsribing to Light floor 2*/
+    client.subscribe(TOPIC_LIGHT_LANDSCAPE); /*Subsribing to Light ladscape*/
+    client.subscribe(TOPIC_LIGHT_RGB);       /*Subsribing to light RGB*/
+    client.subscribe(TOPIC_BUZZER);          /*Subsribing to buzzer*/
+    client.subscribe(TOPIC_MOTOR_GARAGE);    /*Subsribing to Carage*/
+    client.subscribe(TOPIC_MOTOR_FRONT_WIN); /*Subsribing to front window*/
+    client.subscribe(TOPIC_MOTOR_SIDE_WIN);  /*Subsribing to side window*/
+    client.subscribe(TOPIC_MOTOR_DOOR);      /*Subsribing to motor door*/
   } else {
-    Serial.printf("[MQTT] failed, rc=%d\n", client.state());
+    Serial.printf("===>MQTT FAILED, rc | %d <===\n", client.state());
   }
 }
 
