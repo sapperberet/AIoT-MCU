@@ -110,7 +110,29 @@ extern const char
 extern const char *TOPIC_CONTROL; /* Recieve contorlling messages */
 extern const char *TOPIC_SENSORS; /* Puplish sensors' data */
 extern const char *TOPIC_STATUS;  /* Puplish the status */
-/*************************************************************/
+
+/****************Actuators topics************/
+extern const char *TOPIC_FAN;
+extern const char *TOPIC_LIGHT_FLOOR1;
+extern const char *TOPIC_LIGHT_FLOOR2;
+extern const char *TOPIC_LIGHT_LANDSCAPE;
+extern const char *TOPIC_LIGHT_RGB;
+extern const char *TOPIC_BUZZER;
+extern const char *TOPIC_MOTOR_GARAGE;
+extern const char *TOPIC_MOTOR_FRONT_WIN;
+extern const char *TOPIC_MOTOR_SIDE_WIN;
+extern const char *TOPIC_MOTOR_DOOR;
+/********************************************/
+
+/****************Sensors topics**************/
+extern const char *TOPIC_GAS;
+extern const char *TOPIC_LDR;
+extern const char *TOPIC_RAIN;
+extern const char *TOPIC_VOLTAGE;
+extern const char *TOPIC_CURRENT;
+extern const char *TOPIC_HUMIDITY;
+/********************************************/
+/**************************End of MQTT topics*****************************/
 
 /*********************Functions declarations******************/
 
