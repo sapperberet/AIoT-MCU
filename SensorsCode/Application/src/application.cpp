@@ -24,28 +24,22 @@ bool solarActive = false;
 /********************************************/
 
 /**********GLOBALS FOR WIFI******************/
-WiFiUDP udp;
 WiFiClient net;
 /********************************************/
 
 /*********GLOBALS FOR BROKER*****************/
+const char *BROKER_HOST = "broker.emqx.io";
+const uint16_t BROKER_PORT = 1883;
 PubSubClient client(net); // (Instead of client(espClient))
-IPAddress brokerIp;
-uint16_t brokerPort = 1883;
 String clientId;
 unsigned long lastReconnectAttempt = 0;
 unsigned long lastSensorPublish = 0; // (Timer alternative for delay)
 /********************************************/
 
 /*************************Network settings********************/
-const char *WIFI_SSID = "Name of the NETWORK";
-const char *WIFI_PASS = "Password of the NETWORK";
+const char *WIFI_SSID = "Wokwi-GUEST";
+const char *WIFI_PASS = "";
 /*************************End of Network settings*************/
-
-/************************UDP beacon settings******************/
-const uint16_t BEACON_PORT = 18830;
-const char *BEACON_NAME = "face-broker";
-/************************End of UDP beacon settings **********/
 
 /***********************MQTT topics***************************/
 const char *TOPIC_CONTROL = "home/control";
@@ -86,99 +80,7 @@ void setRGB(int r, int g, int b) {
   analogWrite(BLUE_PIN, b);
 }
 
-IPAddress subnetBroadcast(IPAddress ip, IPAddress mask) {
-  uint32_t ip_i = (uint32_t)ip;
-  uint32_t mask_i = (uint32_t)mask;
-  uint32_t bcast = ip_i | ~mask_i;
-  return IPAddress(bcast);
-}
 
-bool parseAdvert(const char *json) {
-  JsonDocument doc;
-  if (deserializeJson(doc, json))
-    return false;
-  const char *name = doc["name"] | "";
-  const char *ip = doc["ip"] | "";
-  int port = doc["port"] | 1883;
-  if (String(name) != BEACON_NAME)
-    return false;
-  IPAddress addr;
-  if (!addr.fromString(ip))
-    return false;
-  brokerIp = addr;
-  brokerPort = (uint16_t)port;
-  return true;
-}
-
-bool discoverPassive(uint32_t ms) {
-  Serial.printf("[DISCOVER] passive listen %u ms\n", ms);
-  udp.begin(BEACON_PORT);
-  uint32_t t0 = millis();
-  while (millis() - t0 < ms) {
-    int p = udp.parsePacket();
-    if (p) {
-      char buf[256];
-      int n = udp.read(buf, sizeof(buf) - 1);
-      buf[n > 0 ? n : 0] = 0;
-      if (parseAdvert(buf)) {
-        Serial.printf("[DISCOVER] got advert %s:%u\n",
-                      brokerIp.toString().c_str(), brokerPort);
-        udp.stop();
-        return true;
-      }
-    }
-    delay(30);
-  }
-  udp.stop();
-  return false;
-}
-
-bool discoverActive(uint32_t ms) {
-  Serial.printf("[DISCOVER] active query %u ms\n", ms);
-  udp.begin(BEACON_PORT);
-  JsonDocument q;
-  q["type"] = "WHO_IS";
-  q["name"] = BEACON_NAME;
-  char qbuf[128];
-  size_t qlen = serializeJson(q, qbuf, sizeof(qbuf));
-  IPAddress ip = WiFi.localIP();
-  IPAddress mask = WiFi.subnetMask();
-  IPAddress bcast = subnetBroadcast(ip, mask);
-  uint32_t t0 = millis(), lastTx = 0;
-  while (millis() - t0 < ms) {
-    if (millis() - lastTx > 500) {
-      udp.beginPacket(IPAddress(255, 255, 255, 255), BEACON_PORT);
-      udp.write((const uint8_t *)qbuf, qlen);
-      udp.endPacket();
-      udp.beginPacket(bcast, BEACON_PORT);
-      udp.write((const uint8_t *)qbuf, qlen);
-      udp.endPacket();
-      lastTx = millis();
-    }
-    int p = udp.parsePacket();
-    if (p) {
-      char buf[256];
-      int n = udp.read(buf, sizeof(buf) - 1);
-      buf[n > 0 ? n : 0] = 0;
-      if (parseAdvert(buf)) {
-        Serial.printf("[DISCOVER] got reply %s:%u\n",
-                      brokerIp.toString().c_str(), brokerPort);
-        udp.stop();
-        return true;
-      }
-    }
-    delay(30);
-  }
-  udp.stop();
-  return false;
-}
-
-bool discoverBroker(uint32_t timeout_ms) {
-  uint32_t half = timeout_ms / 2;
-  if (discoverPassive(half))
-    return true;
-  return discoverActive(timeout_ms - half);
-}
 
 void ensureWifi() {
   if (WiFi.status() == WL_CONNECTED)
@@ -207,8 +109,9 @@ void callBack(char *topic, byte *message, unsigned int length) {
   Serial.println(messageTemp);
 
   /************Actuating logic*****************/
+  String topicStr = String(topic);
   /* FAN */
-  if (String(topic) == TOPIC_FAN) {
+  if (topicStr == TOPIC_FAN) {
     if (messageTemp == "in") {
       analogWrite(FAN_ENA, 200);
       digitalWrite(FAN_IN1, HIGH);
@@ -221,46 +124,38 @@ void callBack(char *topic, byte *message, unsigned int length) {
       analogWrite(FAN_ENA, 200);
     } else if (messageTemp == "off") {
       analogWrite(FAN_ENA, 0);
-    } else { /*Do Nothing*/
     }
-  } else { /*Do Nothing*/
   }
 
   /* LIGHT FLOOR1 */
-  if (String(topic) == TOPIC_LIGHT_FLOOR1) {
+  if (topicStr == TOPIC_LIGHT_FLOOR1) {
     if (messageTemp == "on") {
       digitalWrite(LED_FLOOR1, HIGH);
     } else if (messageTemp == "off") {
       digitalWrite(LED_FLOOR1, LOW);
-    } else { /*Do Nothing*/
     }
-  } else { /*Do Nothing*/
   }
 
   /* FLOOR2 */
-  if (String(topic) == TOPIC_LIGHT_FLOOR2) {
+  if (topicStr == TOPIC_LIGHT_FLOOR2) {
     if (messageTemp == "on") {
       digitalWrite(LED_FLOOR2, HIGH);
     } else if (messageTemp == "off") {
       digitalWrite(LED_FLOOR2, LOW);
-    } else { /*Do Nothing*/
     }
-  } else { /*Do Nothing*/
   }
 
   /* LANDSCAPE */
-  if (String(topic) == TOPIC_LIGHT_LANDSCAPE) {
+  if (topicStr == TOPIC_LIGHT_LANDSCAPE) {
     if (messageTemp == "on") {
       digitalWrite(LED_LANDSCAPE, HIGH);
     } else if (messageTemp == "off") {
       digitalWrite(LED_LANDSCAPE, LOW);
-    } else { /*Do nothing*/
     }
-  } else { /*Do Nothing*/
   }
 
   /* RGB */
-  if (String(topic) == TOPIC_LIGHT_RGB) {
+  if (topicStr == TOPIC_LIGHT_RGB) {
     if (messageTemp.startsWith("b ")) {
       int val = messageTemp.substring(2).toInt();
       setRGB(val, val, val);
@@ -275,52 +170,45 @@ void callBack(char *topic, byte *message, unsigned int length) {
         setRGB(0, 255, 0);
       } else if (c == "blue") {
         setRGB(0, 0, 255);
-      } else { /*Do Nothing*/
       }
-    } else { /*Do Nothing*/
     }
   }
 
   /* BUZZER */
-  if (String(topic) == TOPIC_BUZZER) {
+  if (topicStr == TOPIC_BUZZER) {
     if (messageTemp == "on")
       digitalWrite(BUZZER_PIN, HIGH);
     if (messageTemp == "off")
       digitalWrite(BUZZER_PIN, LOW);
-  } else { /*Do Nothing*/
   }
 
   /* MOTORS */
-  if (String(topic) == TOPIC_MOTOR_GARAGE) {
+  if (topicStr == TOPIC_MOTOR_GARAGE) {
     if (messageTemp == "open")
       servoGarage.write(90);
     if (messageTemp == "close")
       servoGarage.write(0);
-  } else { /*Do Nothing*/
   }
 
-  if (String(topic) == TOPIC_MOTOR_FRONT_WIN) {
+  if (topicStr == TOPIC_MOTOR_FRONT_WIN) {
     if (messageTemp == "open")
       servoWindow1.write(90);
     if (messageTemp == "close")
       servoWindow1.write(0);
-  } else { /*Do nothing*/
   }
 
-  if (String(topic) == TOPIC_MOTOR_SIDE_WIN) {
+  if (topicStr == TOPIC_MOTOR_SIDE_WIN) {
     if (messageTemp == "open")
       servoWindow2.write(90);
     if (messageTemp == "close")
       servoWindow2.write(0);
-  } else { /*Do nothing*/
   }
 
-  if (String(topic) == TOPIC_MOTOR_DOOR) {
+  if (topicStr == TOPIC_MOTOR_DOOR) {
     if (messageTemp == "open")
       servoDoor.write(90);
     if (messageTemp == "close")
       servoDoor.write(0);
-  } else { /*Do nothing*/
   }
 
   /********Ending of actuating logic***********/
@@ -346,17 +234,9 @@ void callBack(char *topic, byte *message, unsigned int length) {
 void ensureMqtt() {
   if (client.connected()) {
     return;
-  } else { /*Do Nothing*/
   }
 
-  if (!discoverBroker(12000)) {
-    Serial.println("===> MQTT DISCOVERY FAILED <===");
-    delay(1500);
-    return;
-  } else { /*Do Nothing*/
-  }
-
-  client.setServer(brokerIp, brokerPort); /*Setup connetion*/
+  client.setServer(BROKER_HOST, BROKER_PORT); /*Setup connetion*/
   client.setCallback(callBack);           /*Using the callBack*/
 
   const char *willTopic = TOPIC_STATUS;
@@ -364,8 +244,8 @@ void ensureMqtt() {
 
   clientId = "SmartHomeESP32-" +
              String((uint32_t)ESP.getEfuseMac(), HEX); /*Cliend ID*/
-  Serial.printf("===> MQTT CONNECTED TO %s:%u AS %s <===\n",
-                brokerIp.toString().c_str(), brokerPort, clientId.c_str());
+  Serial.printf("===> MQTT CONNECTING TO %s:%u AS %s <===\n",
+                BROKER_HOST, BROKER_PORT, clientId.c_str());
 
   bool okConnected =
       client.connect(clientId.c_str(), nullptr, nullptr, willTopic, 0, true,
