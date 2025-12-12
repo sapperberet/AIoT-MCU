@@ -37,10 +37,9 @@ void setup() {
 
 void loop() {
   if (WiFi.status() != WL_CONNECTED) { /* Checking if the wifi is connected */
-    ensureWifi();
-  } else {
     Serial.printf("===> WIFI NOT CONNECTED <===\n");
     Serial.printf("===> TRYING TO CONNECT TO (%s) <===\n", WIFI_SSID);
+    ensureWifi();
   }
 
   unsigned long now = millis(); /* Getting th time at start */
