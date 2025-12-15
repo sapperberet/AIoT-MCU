@@ -53,6 +53,9 @@
 #define SERVO_GARAGE_PIN 19  /* Servo controlling garage's door */
 #define SERVO_GATE_PIN 21    /* Servo controlling villa's gate */
 
+/**********Servo MOTORS**********/
+#define PUSH_BUTTON 17  /*Push button pin */
+
 /***********************End of pins diagram*******************/
 
 /**************************MCU globals declaration************************/
@@ -131,6 +134,9 @@ extern const char *TOPIC_RAIN;
 extern const char *TOPIC_VOLTAGE;
 extern const char *TOPIC_CURRENT;
 extern const char *TOPIC_HUMIDITY;
+extern const char *TOPIC_FLAME;
+extern const char *TOPIC_TEMPERATURE;
+extern const char *TOPIC_PUSH_BUTTON_FACE_DETECTION;
 /********************************************/
 /**************************End of MQTT topics*****************************/
 
@@ -254,6 +260,18 @@ void callBack(char *topic, byte *message, unsigned int length);
  * @return void
  */
 void ensureMqtt();
+
+/**
+ * @brief Check if the Push button is pushed or not.
+ * 
+ * This function is reading if the push button is pushed or not.
+ * 
+ * @param pinNumber Number of the pin, which the push button is connected too.
+ * 
+ * @return true if the button is pushed
+ * @return false if the button isn't pushed
+ */
+bool buttonPressed(int pinNumber);
 
 /************End of functions' declaration********************/
 
