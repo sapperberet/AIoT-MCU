@@ -66,6 +66,9 @@ const char *TOPIC_RAIN = "home/sensors/rain";
 const char *TOPIC_VOLTAGE = "home/sensors/voltage";
 const char *TOPIC_CURRENT = "home/sensors/current";
 const char *TOPIC_HUMIDITY = "home/sensors/humidity";
+const char *TOPIC_FLAME = "home/sensors/flame";
+const char *TOPIC_TEMPERATURE = "home/sensors/temp";
+const char *TOPIC_PUSH_BUTTON_FACE_DETECTION = "home/event/face-detection";
 /*************************************/
 
 /*************************************************************/
@@ -79,8 +82,6 @@ void setRGB(int r, int g, int b) {
   analogWrite(GREEN_PIN, g);
   analogWrite(BLUE_PIN, b);
 }
-
-
 
 void ensureWifi() {
   if (WiFi.status() == WL_CONNECTED)
@@ -210,25 +211,17 @@ void callBack(char *topic, byte *message, unsigned int length) {
     if (messageTemp == "close")
       servoDoor.write(0);
   }
+}
 
-  /********Ending of actuating logic***********/
-  /*if (String(topic) == TOPIC_CONTROL) {
-    if (messageTemp == "lights_on") {
-      digitalWrite(LED_FLOOR1, HIGH);
-      digitalWrite(LED_FLOOR2, HIGH);
-      digitalWrite(LED_LANDSCAPE, HIGH);
-    } else if (messageTemp == "lights_off") {
-      digitalWrite(LED_FLOOR1, LOW);
-      digitalWrite(LED_FLOOR2, LOW);
-      digitalWrite(LED_LANDSCAPE, LOW);
-    } else if (messageTemp == "fan_on") {
-      analogWrite(FAN_ENA, 200);
-      digitalWrite(FAN_IN1, HIGH);
-      digitalWrite(FAN_IN2, LOW);
-    } else if (messageTemp == "fan_off") {
-      analogWrite(FAN_ENA, 0);
-    }
-  }*/
+bool buttonPressed(int pinNumber){
+  bool state = digitalRead(pinNumber);
+
+  if (LOW == state){
+    return (true);
+  }
+  else{
+    return (false);
+  }
 }
 
 void ensureMqtt() {
