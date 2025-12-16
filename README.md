@@ -243,3 +243,31 @@ home/sensors/humidity
 ```
 <humidity_value>
 ```
+
+---
+
+### Flame Sensor
+
+**Topic:**
+```
+home/sensors/flame
+```
+
+**Message Content:**
+```
+<flame_sensor_reading>
+```
+
+---
+
+### Temp Sensor
+
+**Topic:**
+```
+home/sensors/temp
+```
+
+**Message Content:**
+```
+<temp_sensor_reading>
+```
