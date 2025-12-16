@@ -68,7 +68,7 @@ const char *TOPIC_CURRENT = "home/sensors/current";
 const char *TOPIC_HUMIDITY = "home/sensors/humidity";
 const char *TOPIC_FLAME = "home/sensors/flame";
 const char *TOPIC_TEMPERATURE = "home/sensors/temp";
-const char *TOPIC_PUSH_BUTTON_FACE_DETECTION = "home/event/face-detection";
+const char *TOPIC_PUSH_BUTTON_FACE_DETECTION = "home/events/face-detection";
 /*************************************/
 
 /*************************************************************/
