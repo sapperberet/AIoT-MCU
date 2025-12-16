@@ -271,3 +271,17 @@ home/sensors/temp
 ```
 <temp_sensor_reading>
 ```
+
+---
+
+## 🗓️ Events
+*(النظام ينشر هذه الأحداث)*
+
+---
+
+### Face Detection Event
+
+**Topic:**
+```
+home/events/face-detection
+```
