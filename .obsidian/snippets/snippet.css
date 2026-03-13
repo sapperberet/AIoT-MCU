@@ -1,0 +1,48 @@
+/* 1. Kill scrollbars on the main view AND Obsidian's hidden table wrappers */
+.dashboard .markdown-preview-view,
+.dashboard .markdown-preview-section,
+.dashboard .markdown-rendered div {
+    overflow: hidden !important;
+}
+
+/* 2. Lock the main container */
+.dashboard .markdown-preview-section {
+    display: flex;
+    flex-direction: column;
+    height: 98vh !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 10px 10px 10px !important;
+}
+
+/* 3. Force table to respect the boundary */
+.dashboard table {
+    flex-grow: 1;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+/* 4. Let rows shrink dynamically */
+.dashboard tr {
+    height: auto !important;
+}
+
+/* 5. Squish the text and padding to fit 30+ rows */
+.dashboard td, .dashboard th {
+    padding: 0 5px !important; /* ZERO vertical padding */
+    font-size: 1.6vh !important; /* Shrunk from 2.2vh */
+    line-height: 1.1 !important; /* Tighten the physical line height */
+    vertical-align: middle;
+    text-align: center;
+    white-space: nowrap;
+    border: 1px solid var(--background-modifier-border);
+}
+
+/* Highlight the GPIO column */
+.dashboard td:first-child {
+    font-weight: bold;
+    color: var(--text-accent);
+}

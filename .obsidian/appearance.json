@@ -1,0 +1,9 @@
+{
+  "showRibbon": false,
+  "showViewHeader": false,
+  "nativeMenus": false,
+  "baseFontSize": 18,
+  "enabledCssSnippets": [
+    "snippet"
+  ]
+}

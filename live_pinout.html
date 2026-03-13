@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Pinout Dashboard</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 10px 15px;
+            height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; 
+        }
+        h1 {
+            text-align: center;
+            margin: 0 0 10px 0;
+            font-size: 5vh;
+            color: #4CAF50;
+            flex-shrink: 0; /* Prevents the header from squishing */
+        }
+        .table-container {
+            flex-grow: 1;
+            display: flex;
+            overflow: hidden; /* Contains the table perfectly */
+            padding-bottom: 15px; /* Extra safety buffer at the bottom */
+        }
+        table {
+            width: 100%;
+            height: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        th, td {
+            border: 1px solid #333;
+            text-align: center;
+            font-size: 2.95vh; 
+            padding: 0 10px;
+            
+            /* THE OVERLAP FIX */
+            white-space: nowrap;      /* Keeps it on one line */
+            overflow: hidden;         /* Hides text that bleeds out of the box */
+            text-overflow: ellipsis;  /* Turns that cut-off text into '...' */
+        }
+        
+        /* THE COLUMN WIDTH FIX: Lock them so the AI can't break the layout */
+        th:nth-child(1), td:nth-child(1) { width: 15%; }
+        th:nth-child(2), td:nth-child(2) { width: 60%; }
+        th:nth-child(3), td:nth-child(3) { width: 25%; }
+        
+        th { background-color: #2d2d2d; color: #fff; }
+        td:first-child { 
+            font-weight: bold; 
+            color: #4CAF50; 
+            font-size: 3.40vh; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🔌 Smart IoT Home Pinout</h1>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr><th>GPIO Pin</th><th>Component</th><th>Type</th></tr>
+            </thead>
+            <tbody><tr><td>2</td><td>RGB LED Green Pin</td><td>OUTPUT</td></tr><tr><td>4</td><td>DHT11 Temperature and Humidity Sensor</td><td>INPUT</td></tr><tr><td>5</td><td>Fan</td><td>OUTPUT</td></tr><tr><td>12</td><td>RGB LED Blue Pin</td><td>OUTPUT</td></tr><tr><td>13</td><td>Fan</td><td>OUTPUT</td></tr><tr><td>14</td><td>Flame Sensor</td><td>INPUT</td></tr><tr><td>15</td><td>Servo Window1</td><td>OUTPUT</td></tr><tr><td>16</td><td>Servo Window2</td><td>OUTPUT</td></tr><tr><td>18</td><td>Servo Door</td><td>OUTPUT</td></tr><tr><td>19</td><td>Servo Garage</td><td>OUTPUT</td></tr><tr><td>21</td><td>Servo Gate</td><td>OUTPUT</td></tr><tr><td>22</td><td>RGB LED Red Pin</td><td>OUTPUT</td></tr><tr><td>23</td><td>Buzzer</td><td>OUTPUT</td></tr><tr><td>25</td><td>Floor1 LED</td><td>OUTPUT</td></tr><tr><td>26</td><td>Floor2 LED</td><td>OUTPUT</td></tr><tr><td>27</td><td>Landscape LED</td><td>OUTPUT</td></tr><tr><td>32</td><td>Rain Sensor</td><td>INPUT</td></tr><tr><td>33</td><td>Fan</td><td>OUTPUT</td></tr><tr><td>34</td><td>MQ135 Gas Sensor</td><td>INPUT</td></tr><tr><td>34</td><td>MQ135 Gas Sensor</td><td>INPUT</td></tr><tr><td>35</td><td>LDR Light Sensor</td><td>INPUT</td></tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
