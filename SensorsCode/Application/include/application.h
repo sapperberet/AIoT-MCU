@@ -48,7 +48,8 @@
 #define SERVO_FRONT_WIN_LEFT_PIN 2    /* Left servo for front window - GPIO 2 OK for output */
 #define SERVO_FRONT_WIN_RIGHT_PIN 12  /* Right servo for front window - GPIO 12 OK for output */
 #define SERVO_DOOR_PIN 18             /* Servo controlling house's door */
-#define SERVO_GARAGE_PIN 19           /* Servo controlling garage's door */
+#define SERVO_GARAGE_LEFT_PIN 13      /* Left servo for garage door */
+#define SERVO_GARAGE_RIGHT_PIN 19     /* Right servo for garage door */
 #define SERVO_GATE_LEFT_PIN 21        /* Left servo for main gate */
 #define SERVO_GATE_RIGHT_PIN 22       /* Right servo for main gate */
 
@@ -67,7 +68,8 @@
 extern Servo servoFrontWinLeft;   /* Left servo for front window */
 extern Servo servoFrontWinRight;  /* Right servo for front window */
 extern Servo servoDoor;           /* Servo for the house's door */
-extern Servo servoGarage;         /* Servo for the garage's door */
+extern Servo servoGarageLeft;     /* Left servo for the garage's door */
+extern Servo servoGarageRight;    /* Right servo for the garage's door */
 extern Servo servoGateLeft;       /* Left servo for main gate */
 extern Servo servoGateRight;      /* Right servo for main gate */
 
@@ -370,6 +372,16 @@ void initGateServos();
 void initFrontWindowServos();
 
 /**
+ * @brief Initialize the garage servo with proper settings.
+ * 
+ * This function sets up the garage servo with PWM frequency,
+ * attaches it to its pin, and moves it to the closed position.
+ * 
+ * @return void
+ */
+void initGarageServo();
+
+/**
  * @brief Open the main gate with smooth synchronized movement.
  * 
  * This function moves both gate doors from closed to open position
@@ -400,6 +412,17 @@ void closeGate();
  * @return void
  */
 void moveGateTo(int targetAngle);
+
+/**
+ * @brief Calculate the right garage door pulse width from the left door pulse width.
+ * 
+ * This performs a perfect mirrored movement for the paired garage servos.
+ * 
+ * @param leftUs The left garage servo pulse width in microseconds.
+ * 
+ * @return int The mirrored right servo pulse width.
+ */
+int getGarageRightUs(int leftUs);
 
 /**
  * @brief Calculate the right door's pulse width with offset for front window.
@@ -462,6 +485,20 @@ void moveDoorTo(int targetAngle);
  * @return void
  */
 void moveGarageTo(int targetAngle);
+
+/**
+ * @brief Open the garage with smooth movement.
+ * 
+ * @return void
+ */
+void openGarage();
+
+/**
+ * @brief Close the garage with smooth movement.
+ * 
+ * @return void
+ */
+void closeGarage();
 
 /**
  * @brief Process pending servo movement commands.

@@ -26,18 +26,13 @@ void setup() {
   // Initialize servos
   initGateServos();
   initFrontWindowServos();
+  initGarageServo();
   
   // Initialize door servo with smooth movement support
   servoDoor.attach(SERVO_DOOR_PIN, SERVO_MIN_US, SERVO_MAX_US);
   doorCurrentUs = map(doorClosedAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
   servoDoor.writeMicroseconds(doorCurrentUs);  // Start closed at 150 degrees
   remoteLog("--- Door Servo Initialized ---");
-  
-  // Initialize garage servo with smooth movement support
-  servoGarage.attach(SERVO_GARAGE_PIN, SERVO_MIN_US, SERVO_MAX_US);
-  garageCurrentUs = map(garageClosedAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
-  servoGarage.writeMicroseconds(garageCurrentUs);  // Start closed at 150 degrees
-  remoteLog("--- Garage Servo Initialized ---");
   
   // Connect WiFi first, then start OTA/WebSerial, then MQTT
   ensureWifi();
@@ -77,6 +72,9 @@ void loop() {
     TempAndHumidity data = dht.getTempAndHumidity();
     float t = data.temperature;
     float h = data.humidity;
+    if (isnan(t) || isnan(h)) {
+      remoteLogf("[DHT] Read failed (status=%d)", dht.getStatus());
+    }
     
     // Read other sensors
     int mq = analogRead(MQ135_PIN);

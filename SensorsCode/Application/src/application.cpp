@@ -12,14 +12,36 @@
 
 static AsyncWebServer webServer(80);
 static bool remoteAccessStarted = false;
+static constexpr size_t LOG_BUFFER_CAPACITY = 120;
+static String logBuffer[LOG_BUFFER_CAPACITY];
+static size_t logBufferStart = 0;
+static size_t logBufferCount = 0;
+
+static void bufferLogMessage(const String &message) {
+  size_t index = (logBufferStart + logBufferCount) % LOG_BUFFER_CAPACITY;
+  logBuffer[index] = message;
+  if (logBufferCount < LOG_BUFFER_CAPACITY) {
+    logBufferCount++;
+  } else {
+    logBufferStart = (logBufferStart + 1) % LOG_BUFFER_CAPACITY;
+  }
+}
+
+static void flushBufferedLogsToWebSerial() {
+  for (size_t i = 0; i < logBufferCount; ++i) {
+    size_t index = (logBufferStart + i) % LOG_BUFFER_CAPACITY;
+    WebSerial.println(logBuffer[index]);
+  }
+}
 
 static void webSerialReceive(uint8_t *data, size_t len) {
+  flushBufferedLogsToWebSerial();
   String message;
   for (size_t i = 0; i < len; i++) {
     message += static_cast<char>(data[i]);
   }
   message.trim();
-  Serial.printf("[WebSerial RX] %s\n", message.c_str());
+  remoteLogf("[WebSerial RX] %s", message.c_str());
 }
 
 /*********************************MCU globals**********************************/
@@ -28,7 +50,8 @@ static void webSerialReceive(uint8_t *data, size_t len) {
 Servo servoFrontWinLeft;
 Servo servoFrontWinRight;
 Servo servoDoor;
-Servo servoGarage;
+Servo servoGarageLeft;
+Servo servoGarageRight;
 Servo servoGateLeft;
 Servo servoGateRight;
 /**************************************/
@@ -68,13 +91,13 @@ volatile bool doorNeedsMove = false;     /* Flag indicating door needs to move *
 /**************************************/
 
 /**********GARAGE SETTINGS & STATE**********/
-int garageClosedAngle = 150;      /* Closed position angle */
-int garageOpenAngle = 30;         /* Open position angle */
-int garageUsStep = 20;            /* Microsecond step size for smooth movement (matches reference) */
+int garageClosedAngle = 90;       /* Closed position angle */
+int garageOpenAngle = 10;         /* Open position angle */
+int garageUsStep = 1;            /* Microsecond step size for smooth mirrored movement */
 int garageStepDelay = 1;          /* Delay between steps (ms) */
-int garageCurrentAngle = 150;     /* Current angle of garage */
+int garageCurrentAngle = garageClosedAngle;      /* Current angle of garage */
 int garageCurrentUs = 0;          /* Current pulse width (initialized in setup) */
-volatile int garageTargetAngle = 150;    /* Target angle set by MQTT */
+volatile int garageTargetAngle = garageClosedAngle;     /* Target angle set by MQTT */
 volatile bool garageNeedsMove = false;   /* Flag indicating garage needs to move */
 /**************************************/
 
@@ -97,7 +120,8 @@ WiFiClient net;
 
 /*********GLOBALS FOR BROKER*****************/
 const uint16_t BEACON_PORT = 18830;
-const char *BEACON_NAME = "face-broker";
+const char *BEACON_NAME = "server-beacon";
+const char *BEACON_NAME_LEGACY = "face-broker";
 PubSubClient client(net); // (Instead of client(espClient))
 IPAddress brokerIp;
 uint16_t brokerPort = 1883;
@@ -180,7 +204,8 @@ bool parseAdvert(const char *json) {
   const char *name = doc["name"] | "";
   const char *ip = doc["ip"] | "";
   int port = doc["port"] | 1883;
-  if (String(name) != BEACON_NAME)
+  String beacon = String(name);
+  if (beacon != BEACON_NAME && beacon != BEACON_NAME_LEGACY)
     return false;
   IPAddress addr;
   if (!addr.fromString(ip))
@@ -191,7 +216,7 @@ bool parseAdvert(const char *json) {
 }
 
 bool discoverPassive(uint32_t ms) {
-  Serial.printf("[DISCOVER] passive listen %u ms\n", ms);
+  remoteLogf("[DISCOVER] passive listen %u ms", ms);
   udp.begin(BEACON_PORT);
   uint32_t t0 = millis();
   while (millis() - t0 < ms) {
@@ -202,8 +227,8 @@ bool discoverPassive(uint32_t ms) {
       int n = udp.read(buf, sizeof(buf) - 1);
       buf[n > 0 ? n : 0] = 0;
       if (parseAdvert(buf)) {
-        Serial.printf("[DISCOVER] got advert %s:%u\n",
-                      brokerIp.toString().c_str(), brokerPort);
+        remoteLogf("[DISCOVER] got advert %s:%u",
+                   brokerIp.toString().c_str(), brokerPort);
         udp.stop();
         return true;
       }
@@ -215,13 +240,20 @@ bool discoverPassive(uint32_t ms) {
 }
 
 bool discoverActive(uint32_t ms) {
-  Serial.printf("[DISCOVER] active query %u ms\n", ms);
+  remoteLogf("[DISCOVER] active query %u ms", ms);
   udp.begin(BEACON_PORT); // bind to receive replies
+
   StaticJsonDocument<128> q;
   q["type"] = "WHO_IS";
   q["name"] = BEACON_NAME;
   char qbuf[128];
   size_t qlen = serializeJson(q, qbuf, sizeof(qbuf));
+
+  StaticJsonDocument<128> qLegacy;
+  qLegacy["type"] = "WHO_IS";
+  qLegacy["name"] = BEACON_NAME_LEGACY;
+  char qLegacyBuf[128];
+  size_t qLegacyLen = serializeJson(qLegacy, qLegacyBuf, sizeof(qLegacyBuf));
 
   IPAddress ip = WiFi.localIP();
   IPAddress mask = WiFi.subnetMask();
@@ -237,6 +269,14 @@ bool discoverActive(uint32_t ms) {
       udp.beginPacket(bcast, BEACON_PORT);
       udp.write((const uint8_t *)qbuf, qlen);
       udp.endPacket();
+
+      udp.beginPacket(IPAddress(255, 255, 255, 255), BEACON_PORT);
+      udp.write((const uint8_t *)qLegacyBuf, qLegacyLen);
+      udp.endPacket();
+      udp.beginPacket(bcast, BEACON_PORT);
+      udp.write((const uint8_t *)qLegacyBuf, qLegacyLen);
+      udp.endPacket();
+
       lastTx = millis();
     }
     int p = udp.parsePacket();
@@ -245,8 +285,8 @@ bool discoverActive(uint32_t ms) {
       int n = udp.read(buf, sizeof(buf) - 1);
       buf[n > 0 ? n : 0] = 0;
       if (parseAdvert(buf)) {
-        Serial.printf("[DISCOVER] got reply %s:%u\n",
-                      brokerIp.toString().c_str(), brokerPort);
+        remoteLogf("[DISCOVER] got reply %s:%u",
+                   brokerIp.toString().c_str(), brokerPort);
         udp.stop();
         return true;
       }
@@ -270,17 +310,17 @@ void ensureWifi() {
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.printf("WiFi connecting");
+  remoteLog("WiFi connecting");
   while (WiFi.status() != WL_CONNECTED) {
     handleRemoteAccess();
     delay(250);
-    Serial.printf(".");
+    remoteLog(".");
   }
-  Serial.printf("\nWiFi OK. IP: %s\n", WiFi.localIP().toString().c_str());
+  remoteLogf("WiFi OK. IP: %s", WiFi.localIP().toString().c_str());
 }
 
 void remoteLog(const String &message) {
-  Serial.println(message);
+  bufferLogMessage(message);
   if (remoteAccessStarted && WiFi.status() == WL_CONNECTED) {
     WebSerial.println(message);
   }
@@ -309,7 +349,7 @@ void setupRemoteAccess() {
   WebSerial.onMessage(webSerialReceive);
   webServer.begin();
 
-  ArduinoOTA.setHostname("SmartHomeESP32");
+  ArduinoOTA.setHostname("aiotesp32");
   if (std::strlen(OTA_PASSWORD_VALUE) > 0) {
     ArduinoOTA.setPassword(OTA_PASSWORD_VALUE);
   }
@@ -345,16 +385,14 @@ void handleRemoteAccess() {
 }
 
 void callBack(char *topic, byte *message, unsigned int length) {
-  Serial.printf("Message received on topic: ");
-  Serial.println(topic);
+  remoteLogf("Message received on topic: %s", topic);
 
   String messageTemp;
   for (int i = 0; i < length; i++) {
     messageTemp += (char)message[i];
   }
 
-  Serial.printf("Message: ");
-  Serial.println(messageTemp);
+  remoteLogf("Message: %s", messageTemp.c_str());
 
   /************Actuating logic*****************/
   String topicStr = String(topic);
@@ -408,12 +446,12 @@ void callBack(char *topic, byte *message, unsigned int length) {
     if (messageTemp == "open") {
       garageTargetAngle = garageOpenAngle;
       garageNeedsMove = true;
-      Serial.printf("[GARAGE] Open requested, target=%d\n", garageTargetAngle);
+      remoteLogf("[GARAGE] Open requested, target=%d", garageTargetAngle);
     }
     if (messageTemp == "close") {
       garageTargetAngle = garageClosedAngle;
       garageNeedsMove = true;
-      Serial.printf("[GARAGE] Close requested, target=%d\n", garageTargetAngle);
+      remoteLogf("[GARAGE] Close requested, target=%d", garageTargetAngle);
     }
   }
 
@@ -421,11 +459,11 @@ void callBack(char *topic, byte *message, unsigned int length) {
     if (messageTemp == "open") {
       frontWinTargetAngle = frontWinOpenAngle;
       frontWinNeedsMove = true;
-      Serial.printf("[FRONT_WIN] Open requested, target=%d\n", frontWinTargetAngle);
+      remoteLogf("[FRONT_WIN] Open requested, target=%d", frontWinTargetAngle);
     } else if (messageTemp == "close") {
       frontWinTargetAngle = frontWinClosedAngle;
       frontWinNeedsMove = true;
-      Serial.printf("[FRONT_WIN] Close requested, target=%d\n", frontWinTargetAngle);
+      remoteLogf("[FRONT_WIN] Close requested, target=%d", frontWinTargetAngle);
     }
   }
 
@@ -433,12 +471,12 @@ void callBack(char *topic, byte *message, unsigned int length) {
     if (messageTemp == "open") {
       doorTargetAngle = doorOpenAngle;
       doorNeedsMove = true;
-      Serial.printf("[DOOR] Open requested, target=%d\n", doorTargetAngle);
+      remoteLogf("[DOOR] Open requested, target=%d", doorTargetAngle);
     }
     else if (messageTemp == "close") {
       doorTargetAngle = doorClosedAngle;
       doorNeedsMove = true;
-      Serial.printf("[DOOR] Close requested, target=%d\n", doorTargetAngle);
+      remoteLogf("[DOOR] Close requested, target=%d", doorTargetAngle);
     }
   }
 
@@ -447,11 +485,11 @@ void callBack(char *topic, byte *message, unsigned int length) {
     if (messageTemp == "open") {
       gateTargetAngle = gateOpenAngle;
       gateNeedsMove = true;
-      Serial.printf("[GATE] Open requested, target=%d, flag=%d\n", gateTargetAngle, gateNeedsMove);
+      remoteLogf("[GATE] Open requested, target=%d, flag=%d", gateTargetAngle, gateNeedsMove);
     } else if (messageTemp == "close") {
       gateTargetAngle = gateClosedAngle;
       gateNeedsMove = true;
-      Serial.printf("[GATE] Close requested, target=%d, flag=%d\n", gateTargetAngle, gateNeedsMove);
+      remoteLogf("[GATE] Close requested, target=%d, flag=%d", gateTargetAngle, gateNeedsMove);
     }
   }
 }
@@ -476,7 +514,8 @@ void ensureMqtt() {
   ensureWifi();
 
   if (!discoverBroker(12000)) {
-    Serial.println("[MQTT] discovery failed; retry soon");
+    remoteLogf("[MQTT] discovery failed for '%s' (legacy '%s'); retry soon",
+               BEACON_NAME, BEACON_NAME_LEGACY);
     uint32_t waitStart = millis();
     while (millis() - waitStart < 1500) {
       handleRemoteAccess();
@@ -493,15 +532,16 @@ void ensureMqtt() {
 
   clientId = "SmartHomeESP32-" +
              String((uint32_t)ESP.getEfuseMac(), HEX); /*Cliend ID*/
-  Serial.printf("===> MQTT CONNECTING TO %s:%u AS %s <===\n",
-                brokerIp.toString().c_str(), brokerPort, clientId.c_str());
+  remoteLogf("[MQTT] Connecting to %s:%u as %s",
+             brokerIp.toString().c_str(), brokerPort, clientId.c_str());
 
   bool okConnected =
       client.connect(clientId.c_str(), nullptr, nullptr, willTopic, 0, true,
                      willMsg); /*Connecting to client*/
 
   if (okConnected) { /*Connecting to topics*/
-    Serial.println("===> MQTT CONNECTED <===");
+    remoteLogf("[MQTT] Connected to %s:%u",
+               brokerIp.toString().c_str(), brokerPort);
     client.subscribe(TOPIC_CONTROL); /*Subscribing to topic*/
     client.publish(TOPIC_STATUS, "ONLINE", true);
     client.subscribe(TOPIC_FAN);             /*Subsribing to fan*/
@@ -514,7 +554,7 @@ void ensureMqtt() {
     client.subscribe(TOPIC_MOTOR_DOOR);      /*Subsribing to motor door*/
     client.subscribe(TOPIC_MOTOR_GATE);       /*Subscribing to main gate*/
   } else {
-    Serial.printf("===>MQTT FAILED, rc | %d <===\n", client.state());
+    remoteLogf("[MQTT] Connect failed, rc=%d", client.state());
   }
 }
 
@@ -538,7 +578,7 @@ void initGateServos() {
   servoGateLeft.writeMicroseconds(gateCurrentUs);
   servoGateRight.writeMicroseconds(invertedUs);
   
-  Serial.println("--- Main Gate Servos Initialized ---");
+  remoteLog("--- Main Gate Servos Initialized ---");
 }
 
 void initFrontWindowServos() {
@@ -558,15 +598,29 @@ void initFrontWindowServos() {
   servoFrontWinLeft.writeMicroseconds(frontWinCurrentUs);
   servoFrontWinRight.writeMicroseconds(startRightUs);
   
-  Serial.println("--- Front Window Servos Initialized ---");
+  remoteLog("--- Front Window Servos Initialized ---");
+}
+
+void initGarageServo() {
+  servoGarageLeft.setPeriodHertz(50);
+  servoGarageRight.setPeriodHertz(50);
+
+  servoGarageLeft.attach(SERVO_GARAGE_LEFT_PIN, SERVO_MIN_US, SERVO_MAX_US);
+  servoGarageRight.attach(SERVO_GARAGE_RIGHT_PIN, SERVO_MIN_US, SERVO_MAX_US);
+
+  garageCurrentAngle = garageClosedAngle;
+  garageCurrentUs = map(garageCurrentAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
+  servoGarageLeft.writeMicroseconds(garageCurrentUs);
+  servoGarageRight.writeMicroseconds(map(garageCurrentUs, SERVO_MIN_US, SERVO_MAX_US, SERVO_MAX_US, SERVO_MIN_US));
+
+  remoteLog("--- Garage Door Servos Initialized ---");
 }
 
 void moveGateTo(int targetAngle) {
   targetAngle = constrain(targetAngle, 0, 180);
   int targetUs = map(targetAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
 
-  Serial.print("Moving gate to angle: ");
-  Serial.println(targetAngle);
+  remoteLogf("Moving gate to angle: %d", targetAngle);
 
   // Moving FORWARD (opening)
   if (gateCurrentUs < targetUs) {
@@ -607,6 +661,10 @@ void closeGate() {
   moveGateTo(gateClosedAngle);
 }
 
+int getGarageRightUs(int leftUs) {
+  return map(leftUs, SERVO_MIN_US, SERVO_MAX_US, SERVO_MAX_US, SERVO_MIN_US);
+}
+
 int getFrontWinRightUs(int leftUs) {
   // 1. Calculate the mirror image (standard inverted behavior)
   int mirroredUs = map(leftUs, SERVO_MIN_US, SERVO_MAX_US, SERVO_MAX_US, SERVO_MIN_US);
@@ -622,8 +680,7 @@ void moveFrontWindowTo(int targetAngle) {
   targetAngle = constrain(targetAngle, 0, 180);
   int targetUs = map(targetAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
 
-  Serial.print("Moving front window to angle: ");
-  Serial.println(targetAngle);
+  remoteLogf("Moving front window to angle: %d", targetAngle);
 
   // Moving FORWARD
   if (frontWinCurrentUs < targetUs) {
@@ -661,34 +718,34 @@ void closeFrontWindow() {
 void processServoCommands() {
   // Process gate movement if requested
   if (gateNeedsMove) {
-    Serial.printf("[SERVO] Processing gate move to %d\n", gateTargetAngle);
+    remoteLogf("[SERVO] Processing gate move to %d", gateTargetAngle);
     gateNeedsMove = false;  // Clear flag first to allow new commands
     moveGateTo(gateTargetAngle);
-    Serial.println("[SERVO] Gate move complete");
+    remoteLog("[SERVO] Gate move complete");
   }
   
   // Process front window movement if requested
   if (frontWinNeedsMove) {
-    Serial.printf("[SERVO] Processing front window move to %d\n", frontWinTargetAngle);
+    remoteLogf("[SERVO] Processing front window move to %d", frontWinTargetAngle);
     frontWinNeedsMove = false;  // Clear flag first to allow new commands
     moveFrontWindowTo(frontWinTargetAngle);
-    Serial.println("[SERVO] Front window move complete");
+    remoteLog("[SERVO] Front window move complete");
   }
   
   // Process door movement if requested
   if (doorNeedsMove) {
-    Serial.printf("[SERVO] Processing door move to %d\n", doorTargetAngle);
+    remoteLogf("[SERVO] Processing door move to %d", doorTargetAngle);
     doorNeedsMove = false;
     moveDoorTo(doorTargetAngle);
-    Serial.println("[SERVO] Door move complete");
+    remoteLog("[SERVO] Door move complete");
   }
   
   // Process garage movement if requested
   if (garageNeedsMove) {
-    Serial.printf("[SERVO] Processing garage move to %d\n", garageTargetAngle);
+    remoteLogf("[SERVO] Processing garage move to %d", garageTargetAngle);
     garageNeedsMove = false;
     moveGarageTo(garageTargetAngle);
-    Serial.println("[SERVO] Garage move complete");
+    remoteLog("[SERVO] Garage move complete");
   }
 }
 
@@ -697,8 +754,7 @@ void moveDoorTo(int targetAngle) {
   targetAngle = constrain(targetAngle, 0, 180);
   int targetUs = map(targetAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
 
-  Serial.print("Moving door to angle: ");
-  Serial.println(targetAngle);
+  remoteLogf("Moving door to angle: %d", targetAngle);
 
   // Moving FORWARD
   if (doorCurrentUs < targetUs) {
@@ -728,13 +784,13 @@ void moveGarageTo(int targetAngle) {
   targetAngle = constrain(targetAngle, 0, 180);
   int targetUs = map(targetAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
 
-  Serial.print("Moving garage to angle: ");
-  Serial.println(targetAngle);
+  remoteLogf("Moving garage to angle: %d", targetAngle);
 
   // Moving FORWARD
   if (garageCurrentUs < targetUs) {
     for (int us = garageCurrentUs; us <= targetUs; us += garageUsStep) {
-      servoGarage.writeMicroseconds(us);
+      servoGarageLeft.writeMicroseconds(us);
+      servoGarageRight.writeMicroseconds(getGarageRightUs(us));
       delay(garageStepDelay);
       yield();
     }
@@ -742,16 +798,26 @@ void moveGarageTo(int targetAngle) {
   // Moving BACKWARD
   else if (garageCurrentUs > targetUs) {
     for (int us = garageCurrentUs; us >= targetUs; us -= garageUsStep) {
-      servoGarage.writeMicroseconds(us);
+      servoGarageLeft.writeMicroseconds(us);
+      servoGarageRight.writeMicroseconds(getGarageRightUs(us));
       delay(garageStepDelay);
       yield();
     }
   }
 
   // Final Lock
-  servoGarage.writeMicroseconds(targetUs);
+  servoGarageLeft.writeMicroseconds(targetUs);
+  servoGarageRight.writeMicroseconds(getGarageRightUs(targetUs));
   garageCurrentAngle = targetAngle;
   garageCurrentUs = targetUs;
+}
+
+void openGarage() {
+  moveGarageTo(garageOpenAngle);
+}
+
+void closeGarage() {
+  moveGarageTo(garageClosedAngle);
 }
 
 /************************End of functions' definition**************************/
