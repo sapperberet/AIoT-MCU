@@ -2,155 +2,116 @@
 #include "../include/application.h"
 
 void setup() {
-  Serial.begin(115200); /* Beginning serial monitor to baud 115200 */
-  dht.begin();          /* beginning the dht sensor */
-
-  /****************Initializing the mode of each pin***************************/
-  pinMode(FAN_ENA, OUTPUT);
-  pinMode(FAN_IN1, OUTPUT);
-  pinMode(FAN_IN2, OUTPUT);
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("=== Smart Home ESP32 Starting ===");
+  
+  // Initialize DHT sensor (DHTesp for ESP32 compatibility)
+  dht.setup(DHT_PIN, DHTesp::DHT22);
+  
+  // Initialize output pins
+  pinMode(FAN_IN_PIN, OUTPUT);
+  pinMode(FAN_OUT_PIN, OUTPUT);
+  digitalWrite(FAN_IN_PIN, HIGH);   // Start OFF (active LOW)
+  digitalWrite(FAN_OUT_PIN, HIGH);  // Start OFF (active LOW)
   pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(MQ135_PIN, INPUT);
-  pinMode(FLAME_PIN, INPUT);
-  pinMode(LDR_PIN, INPUT);
-  pinMode(RAIN_PIN, INPUT);
+  digitalWrite(BUZZER_PIN, HIGH);   // Start OFF (active LOW)
   pinMode(LED_FLOOR1, OUTPUT);
   pinMode(LED_FLOOR2, OUTPUT);
-  pinMode(LED_LANDSCAPE, OUTPUT);
-  pinMode(RED_PIN, OUTPUT);
-  pinMode(GREEN_PIN, OUTPUT);
-  pinMode(BLUE_PIN, OUTPUT);
-  pinMode(PUSH_BUTTON, INPUT_PULLUP);
-
-  servoWindow1.attach(SERVO_WINDOW1_PIN);
-  servoWindow2.attach(SERVO_WINDOW2_PIN);
-  servoDoor.attach(SERVO_DOOR_PIN);
-  servoGarage.attach(SERVO_GARAGE_PIN);
-  servoGate.attach(SERVO_GATE_PIN);
-  /******************************************************************************/
-
-  Serial.println("===> Initialized! INITIALIZING MQTT AND WIFI <===");
-
-  ensureWifi(); /* Connecting Wifi */
-  ensureMqtt(); /* Connecting MQTT */
+  
+  // Initialize input pins
+  pinMode(FLAME_PIN, INPUT);
+  pinMode(RAIN_PIN, INPUT);
+  
+  // Initialize servos
+  initGateServos();
+  initFrontWindowServos();
+  
+  // Initialize door servo with smooth movement support
+  servoDoor.attach(SERVO_DOOR_PIN, SERVO_MIN_US, SERVO_MAX_US);
+  doorCurrentUs = map(doorClosedAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
+  servoDoor.writeMicroseconds(doorCurrentUs);  // Start closed at 150 degrees
+  Serial.println("--- Door Servo Initialized ---");
+  
+  // Initialize garage servo with smooth movement support
+  servoGarage.attach(SERVO_GARAGE_PIN, SERVO_MIN_US, SERVO_MAX_US);
+  garageCurrentUs = map(garageClosedAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
+  servoGarage.writeMicroseconds(garageCurrentUs);  // Start closed at 150 degrees
+  Serial.println("--- Garage Servo Initialized ---");
+  
+  // Connect to WiFi and MQTT
+  ensureMqtt();
+  
+  Serial.println("=== Setup Complete ===");
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) { /* Checking if the wifi is connected */
-    Serial.printf("===> WIFI NOT CONNECTED <===\n");
-    Serial.printf("===> TRYING TO CONNECT TO (%s) <===\n", WIFI_SSID);
-    ensureWifi();
+  static unsigned long lastSensorPublish = 0;
+  static unsigned long lastReconnect = 0;
+  unsigned long now = millis();
+  
+  // MQTT reconnect with throttling
+  if (!client.connected() && (now - lastReconnect > 5000)) {
+    lastReconnect = now;
+    Serial.println("[MQTT] Not connected, calling ensureMqtt()...");
+    ensureMqtt();
   }
-
-  unsigned long now = millis(); /* Getting th time at start */
-
-  if (!(client.connected())) {
-    if ((now - lastReconnectAttempt) >
-        5000) {                   /* Retry to connect every 5 seconds */
-      lastReconnectAttempt = now; /* Current time */
-      ensureMqtt();
-    } else { /* DO NOTHING */
-    }
-  } else {
-    client.loop(); /* For processing messages */
+  
+  // Process MQTT messages
+  if (client.connected()) {
+    client.loop();
   }
-
-  if ((now - lastSensorPublish) > 1000) { /* Sending data every 1 seconds */
+  
+  // Process any pending servo movements (non-blocking)
+  processServoCommands();
+  
+  // Publish sensors every 5 seconds
+  if (now - lastSensorPublish >= 5000) {
     lastSensorPublish = now;
-
-    /* Reading sensors values */
-    float humidity = dht.readHumidity();       /* Humidity */
-    float temperature = dht.readTemperature(); /* Temperature */
-    int smoke = analogRead(MQ135_PIN);         /* Smoke */
-    int flame = digitalRead(FLAME_PIN);        /* Flame */
-    int lightLevel = analogRead(LDR_PIN);      /* Light level */
-    int rain = digitalRead(RAIN_PIN);          /* Rain */
-    bool faceDetectionRun = buttonPressed(PUSH_BUTTON);  /* Checks if the push button is pressed */
-
-    // /* Monitoring all sensors data */
-    // Serial.printf("------ SENSORS DATA ------\n");
-    // Serial.printf("Temp: %0.3f\n", temperature);
-    // Serial.printf("Humidity: %0.3f\n", humidity);
-    // Serial.printf("Smoke: %i\n", smoke);
-    // Serial.printf("Flame: %i\n", flame);
-    // Serial.printf("Light: %i\n", lightLevel);
-    // Serial.printf("Rain: %i\n", rain);
-    // Serial.printf("-------------------------\n");
-
-    // /* Smoke and flame alarm */
-    // if (smoke > 2000 || flame == LOW) { /* True */
-    //   digitalWrite(BUZZER_PIN, HIGH);
-    //   setRGB(255, 0, 0); /* Red: fire mode */
-    //   Serial.println("===> WARNING!! SMOKE OR FLAME DETECTED <===");
-    // } else { /* False */
-    //   digitalWrite(BUZZER_PIN, LOW);
-
-    //   /* Controlling windows */
-    //   if (rain == LOW) { /* There is rain */
-    //     servoWindow1.write(0);
-    //     servoWindow2.write(0);
-    //     Serial.println("===> RAIN DETECTED || CLOSING ALL WINDOWS <===");
-    //   } else { /* There is no rain */
-    //     servoWindow1.write(90);
-    //     servoWindow2.write(90);
-    //   }
-
-    //   /* Controlling fan */
-    //   if (temperature > 30) { /* Hot temperature */
-    //     analogWrite(FAN_ENA, 200);
-    //     digitalWrite(FAN_IN1, HIGH);
-    //     digitalWrite(FAN_IN2, LOW);
-    //     Serial.printf("===> TEMPERATURE: %0.3f || FAN ON <===\n", temperature);
-    //   } else { /* Normal temperature */
-    //     analogWrite(FAN_ENA, 0);
-    //     Serial.printf("===> TEMPERATURE: %0.3f || FAN OFF <===\n", temperature);
-    //   }
-
-    //   /* Controlling lighting and the mode */
-    //   if (lightLevel < 1000) { /* Night mode */
-    //     digitalWrite(LED_FLOOR1, HIGH);
-    //     digitalWrite(LED_FLOOR2, HIGH);
-    //     digitalWrite(LED_LANDSCAPE, HIGH);
-    //     setRGB(0, 0, 255); /* Blue: night mode */
-    //     Serial.println("===> NIGHT MODE || ALL LIGHTS ON <===");
-    //   } else { /* Daytime mode */
-    //     digitalWrite(LED_FLOOR1, LOW);
-    //     digitalWrite(LED_FLOOR2, LOW);
-    //     digitalWrite(LED_LANDSCAPE, LOW);
-    //     setRGB(255, 255, 0); /* Yellow: daytime mode */
-    //     Serial.println("===> DAYTIME || ALL LIGHTS OFF <===");
-    //   }
-
-    //   /* Status of solar panel */
-    //   if (true == solarActive) { /* Checking the power system */
-    //     setRGB(0, 255, 0);       /* Green: solar mode is active */
-    //     Serial.println("===> SOLAR ENERGY ACTIVE <===");
-    //   } else { /* DO NOTHING*/
-    //   }
-    // }
-
-    if (client.connected()) { /* Checking the connectivity of the server */
-      /* Sending sensors' data to using json to the terminal */
-      String payload = String("{\"temperature\":") + temperature +
-                       ",\"humidity\":" + humidity + ",\"smoke\":" + smoke +
-                       ",\"light\":" + lightLevel + ",\"rain\":" + rain +
-                       ",\"flame\":" + flame + "}";
-      client.publish(TOPIC_SENSORS, payload.c_str());
-
-      /* Sending individual topics */
-      client.publish(TOPIC_HUMIDITY, String(humidity).c_str());
-      client.publish(TOPIC_GAS, String(smoke).c_str());
-      client.publish(TOPIC_LDR, String(lightLevel).c_str());
-      client.publish(TOPIC_RAIN, String(rain).c_str());
-      client.publish(TOPIC_FLAME, String(flame).c_str());
-      client.publish(TOPIC_TEMPERATURE, String(temperature).c_str());
-      client.publish(TOPIC_CURRENT, "0"); /* Just for simulation */
-      client.publish(TOPIC_VOLTAGE, "0"); /* Just for simulation */
-      if (true == faceDetectionRun){
-        client.publish(TOPIC_PUSH_BUTTON_FACE_DETECTION, String(faceDetectionRun).c_str());
-      }
-      else{/* DO NOTHING */}
-    } else {                              /* DO NOTHING */
+    
+    // Read DHT (ESP32-safe library)
+    TempAndHumidity data = dht.getTempAndHumidity();
+    float t = data.temperature;
+    float h = data.humidity;
+    
+    // Read other sensors
+    int mq = analogRead(MQ135_PIN);
+    int flame = digitalRead(FLAME_PIN);
+    int light = analogRead(LDR_PIN);
+    int rain = digitalRead(RAIN_PIN);
+    
+    // Publish each sensor to its own topic
+    if (client.connected()) {
+      char buf[16];
+      
+      // Temperature
+      snprintf(buf, sizeof(buf), "%.1f", isnan(t) ? 0.0f : t);
+      client.publish(TOPIC_TEMPERATURE, buf);
+      
+      // Humidity
+      snprintf(buf, sizeof(buf), "%.1f", isnan(h) ? 0.0f : h);
+      client.publish(TOPIC_HUMIDITY, buf);
+      
+      // Gas (MQ135)
+      snprintf(buf, sizeof(buf), "%d", mq);
+      client.publish(TOPIC_GAS, buf);
+      
+      // Flame
+      snprintf(buf, sizeof(buf), "%d", flame);
+      client.publish(TOPIC_FLAME, buf);
+      
+      // Light (LDR)
+      snprintf(buf, sizeof(buf), "%d", light);
+      client.publish(TOPIC_LDR, buf);
+      
+      // Rain
+      snprintf(buf, sizeof(buf), "%d", rain);
+      client.publish(TOPIC_RAIN, buf);
     }
+    
+    Serial.printf("Sensors: T=%.1f H=%.1f MQ=%d Flame=%d Light=%d Rain=%d\n", 
+                  t, h, mq, flame, light, rain);
   }
+  
+  delay(10);
 }

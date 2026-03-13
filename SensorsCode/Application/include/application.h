@@ -6,12 +6,11 @@
 /******************************************************************************/
 
 /***********************Application includes***********************************/
-#include <Adafruit_Sensor.h>
 #include <ArduinoJson.h>
-#include <DHT.h>
+#include <DHTesp.h>  // ESP32-compatible DHT library (replaces DHT.h)
+#include <ESP32Servo.h>
 #include <MQ135.h>
 #include <PubSubClient.h>
-#include <Servo.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 /******************************************************************************/
@@ -28,10 +27,9 @@
 #define LDR_PIN 35   /* Light sensor */
 #define RAIN_PIN 32  /* Rain sensor */
 
-/**********FAN**********/
-#define FAN_ENA 33 /* First fan */
-#define FAN_IN1 5  /* Second fan */
-#define FAN_IN2 13 /* Third fan */
+/**********FAN (Active LOW)**********/
+#define FAN_IN_PIN 5   /* Fan inward flow - active LOW */
+#define FAN_OUT_PIN 17 /* Fan outward flow - active LOW */
 
 /**********BUZZER**********/
 #define BUZZER_PIN 23 /* Buzzer */
@@ -39,38 +37,85 @@
 /**********FLOORS' LEDs**********/
 #define LED_FLOOR1 25    /* First floor LED */
 #define LED_FLOOR2 26    /* Second floor LED */
-#define LED_LANDSCAPE 27 /* Third floor LED */
 
-/**********RGB STREP**********/
-#define RED_PIN 22  /* R color */
-#define GREEN_PIN 2 /* G color */
-#define BLUE_PIN 12 /* B color */
-
-/**********Servo MOTORS**********/
-#define SERVO_WINDOW1_PIN 15 /* Servo controlling window 1 */
-#define SERVO_WINDOW2_PIN 16 /* Servo controlling window 2 */
-#define SERVO_DOOR_PIN 18    /* Servo controlling house's door */
-#define SERVO_GARAGE_PIN 19  /* Servo controlling garage's door */
-#define SERVO_GATE_PIN 21    /* Servo controlling villa's gate */
+/**********RGB STREP - DISABLED**********/
+// #define RED_PIN 13   /* R color */
+// #define GREEN_PIN 16 /* G color */
+// #define BLUE_PIN 27  /* B color */
 
 /**********Servo MOTORS**********/
-#define PUSH_BUTTON 17  /*Push button pin */
+#define SERVO_FRONT_WIN_LEFT_PIN 2    /* Left servo for front window - GPIO 2 OK for output */
+#define SERVO_FRONT_WIN_RIGHT_PIN 12  /* Right servo for front window - GPIO 12 OK for output */
+#define SERVO_DOOR_PIN 18             /* Servo controlling house's door */
+#define SERVO_GARAGE_PIN 19           /* Servo controlling garage's door */
+#define SERVO_GATE_LEFT_PIN 21        /* Left servo for main gate */
+#define SERVO_GATE_RIGHT_PIN 22       /* Right servo for main gate */
+
+/**********Servo Pulse Width Settings**********/
+#define SERVO_MIN_US 500   /* Minimum pulse width */
+#define SERVO_MAX_US 2400  /* Maximum pulse width */
+
+/**********Push button**********/
+#define PUSH_BUTTON 36  /* Push button pin (input only) */
 
 /***********************End of pins diagram*******************/
 
 /**************************MCU globals declaration************************/
 
 /**********SERVOS DECLARATION**********/
-extern Servo servoWindow1; /* Servo of windows 1 */
-extern Servo servoWindow2; /* Servo of windows 2 */
-extern Servo servoDoor;    /* Servo for the house's door */
-extern Servo servoGarage;  /* Servo for the garage's door */
-extern Servo servoGate;    /* Servo for the villa's door */
+extern Servo servoFrontWinLeft;   /* Left servo for front window */
+extern Servo servoFrontWinRight;  /* Right servo for front window */
+extern Servo servoDoor;           /* Servo for the house's door */
+extern Servo servoGarage;         /* Servo for the garage's door */
+extern Servo servoGateLeft;       /* Left servo for main gate */
+extern Servo servoGateRight;      /* Right servo for main gate */
+
+/**********GATE SETTINGS & STATE**********/
+extern int gateClosedAngle;       /* Closed position angle */
+extern int gateOpenAngle;         /* Open position angle */
+extern int gateUsStep;            /* Microsecond step size for smooth movement */
+extern int gateStepDelay;         /* Delay between steps (ms) */
+extern int gateCurrentAngle;      /* Current angle of main gate */
+extern int gateCurrentUs;         /* Current pulse width of gate */
+extern volatile int gateTargetAngle;  /* Target angle set by MQTT (non-blocking) */
+extern volatile bool gateNeedsMove;   /* Flag indicating gate needs to move */
+
+/**********FRONT WINDOW SETTINGS & STATE**********/
+extern int frontWinClosedAngle;   /* Closed position angle */
+extern int frontWinOpenAngle;     /* Open position angle */
+extern int frontWinOffsetAngle;   /* Offset for right door compensation */
+extern int frontWinUsStep;        /* Microsecond step size for smooth movement */
+extern int frontWinStepDelay;     /* Delay between steps (ms) */
+extern int frontWinCurrentAngle;  /* Current angle of front window */
+extern int frontWinCurrentUs;     /* Current pulse width of front window */
+extern volatile int frontWinTargetAngle; /* Target angle set by MQTT (non-blocking) */
+extern volatile bool frontWinNeedsMove;  /* Flag indicating window needs to move */
+/**************************************/
+
+/**********DOOR SETTINGS & STATE**********/
+extern int doorClosedAngle;       /* Closed position angle */
+extern int doorOpenAngle;         /* Open position angle */
+extern int doorUsStep;            /* Microsecond step size for smooth movement */
+extern int doorStepDelay;         /* Delay between steps (ms) */
+extern int doorCurrentAngle;      /* Current angle of door */
+extern int doorCurrentUs;         /* Current pulse width of door */
+extern volatile int doorTargetAngle;  /* Target angle set by MQTT */
+extern volatile bool doorNeedsMove;   /* Flag indicating door needs to move */
+/**************************************/
+
+/**********GARAGE SETTINGS & STATE**********/
+extern int garageClosedAngle;     /* Closed position angle */
+extern int garageOpenAngle;       /* Open position angle */
+extern int garageUsStep;          /* Microsecond step size for smooth movement */
+extern int garageStepDelay;       /* Delay between steps (ms) */
+extern int garageCurrentAngle;    /* Current angle of garage */
+extern int garageCurrentUs;       /* Current pulse width of garage */
+extern volatile int garageTargetAngle;  /* Target angle set by MQTT */
+extern volatile bool garageNeedsMove;   /* Flag indicating garage needs to move */
 /**************************************/
 
 /**********GLOBALS FOR DHT SENSOR**********/
-#define DHT_TYPE DHT22 /* Temperature and humidity sensor's variable */
-extern DHT dht;        /* Temperature and humidity sensor's function */
+extern DHTesp dht;  /* ESP32-compatible DHT sensor */
 /******************************************/
 
 /**********GLOBALS FOR MQ135 SENSOR**********/
@@ -118,12 +163,10 @@ extern const char *TOPIC_STATUS;  /* Puplish the status */
 extern const char *TOPIC_FAN;
 extern const char *TOPIC_LIGHT_FLOOR1;
 extern const char *TOPIC_LIGHT_FLOOR2;
-extern const char *TOPIC_LIGHT_LANDSCAPE;
 extern const char *TOPIC_LIGHT_RGB;
 extern const char *TOPIC_BUZZER;
 extern const char *TOPIC_MOTOR_GARAGE;
 extern const char *TOPIC_MOTOR_FRONT_WIN;
-extern const char *TOPIC_MOTOR_SIDE_WIN;
 extern const char *TOPIC_MOTOR_DOOR;
 /********************************************/
 
@@ -273,9 +316,136 @@ void ensureMqtt();
  */
 bool buttonPressed(int pinNumber);
 
+/**
+ * @brief Initialize the main gate servos with proper settings.
+ * 
+ * This function sets up both gate servos with PWM frequency and
+ * attaches them to their respective pins.
+ * 
+ * @return void
+ */
+void initGateServos();
+
+/**
+ * @brief Initialize the front window servos with proper settings.
+ * 
+ * This function sets up both front window servos with PWM frequency and
+ * attaches them to their respective pins.
+ * 
+ * @return void
+ */
+void initFrontWindowServos();
+
+/**
+ * @brief Open the main gate with smooth synchronized movement.
+ * 
+ * This function moves both gate doors from closed to open position
+ * with smooth gliding motion, mirroring left and right doors.
+ * 
+ * @return void
+ */
+void openGate();
+
+/**
+ * @brief Close the main gate with smooth synchronized movement.
+ * 
+ * This function moves both gate doors from open to closed position
+ * with smooth gliding motion, mirroring left and right doors.
+ * 
+ * @return void
+ */
+void closeGate();
+
+/**
+ * @brief Move the main gate to a specific angle.
+ * 
+ * This function provides smooth synchronized movement for both
+ * gate doors to a target angle.
+ * 
+ * @param targetAngle The target angle (0-180) for the gate.
+ * 
+ * @return void
+ */
+void moveGateTo(int targetAngle);
+
+/**
+ * @brief Calculate the right door's pulse width with offset for front window.
+ * 
+ * This function computes the mirrored position for the right window
+ * door, adding an offset to compensate for mechanical differences.
+ * 
+ * @param leftUs The pulse width of the left door in microseconds.
+ * 
+ * @return int The calculated pulse width for the right door.
+ */
+int getFrontWinRightUs(int leftUs);
+
+/**
+ * @brief Open the front window with smooth synchronized movement.
+ * 
+ * This function moves both window doors from closed to open position
+ * with smooth gliding motion and offset compensation.
+ * 
+ * @return void
+ */
+void openFrontWindow();
+
+/**
+ * @brief Close the front window with smooth synchronized movement.
+ * 
+ * This function moves both window doors from open to closed position
+ * with smooth gliding motion and offset compensation.
+ * 
+ * @return void
+ */
+void closeFrontWindow();
+
+/**
+ * @brief Move the front window to a specific angle.
+ * 
+ * This function provides smooth synchronized movement for both
+ * window doors to a target angle with offset compensation.
+ * 
+ * @param targetAngle The target angle (0-180) for the window.
+ * 
+ * @return void
+ */
+void moveFrontWindowTo(int targetAngle);
+
+/**
+ * @brief Move door smoothly to a specified angle.
+ * 
+ * @param targetAngle The target angle (0-180) for the door.
+ * 
+ * @return void
+ */
+void moveDoorTo(int targetAngle);
+
+/**
+ * @brief Move garage smoothly to a specified angle.
+ * 
+ * @param targetAngle The target angle (0-180) for the garage.
+ * 
+ * @return void
+ */
+void moveGarageTo(int targetAngle);
+
+/**
+ * @brief Process pending servo movement commands.
+ * 
+ * This function should be called from the main loop to handle
+ * non-blocking servo movements that were requested via MQTT.
+ * 
+ * @return void
+ */
+void processServoCommands();
+
 /************End of functions' declaration********************/
 
-#endif
-/******************************************************************************/
+/**********MQTT topic for main gate**********/
+extern const char *TOPIC_MOTOR_GATE;
 
-#endif
+#endif /* DOIT_ESP_32_DIVKIT_V1 == MCU_TYPE */
+
+#endif /* _APPLICATION_H_ */
+/******************************************************************************/
