@@ -4,8 +4,7 @@
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  remoteLog("=== Smart Home ESP32 Starting ===");
-  
+
   // Initialize DHT sensor (DHTesp for ESP32 compatibility)
   dht.setup(DHT_PIN, DHTesp::DHT22);
   
@@ -22,21 +21,20 @@ void setup() {
   // Initialize input pins
   pinMode(FLAME_PIN, INPUT);
   pinMode(RAIN_PIN, INPUT);
+
+  // Start network and remote access before first application log
+  ensureWifi();
+  setupRemoteAccess();
+  remoteLog("=== Smart Home ESP32 Starting ===");
+  remoteLogf("WiFi OK. IP: %s", WiFi.localIP().toString().c_str());
   
   // Initialize servos
   initGateServos();
   initFrontWindowServos();
   initGarageServo();
-  
-  // Initialize door servo with smooth movement support
-  servoDoor.attach(SERVO_DOOR_PIN, SERVO_MIN_US, SERVO_MAX_US);
-  doorCurrentUs = map(doorClosedAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
-  servoDoor.writeMicroseconds(doorCurrentUs);  // Start closed at 150 degrees
-  remoteLog("--- Door Servo Initialized ---");
-  
-  // Connect WiFi first, then start OTA/WebSerial, then MQTT
-  ensureWifi();
-  setupRemoteAccess();
+  initDoorServo();
+
+  // Connect MQTT after network and WebSerial are ready
   ensureMqtt();
   
   remoteLog("=== Setup Complete ===");

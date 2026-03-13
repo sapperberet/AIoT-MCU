@@ -382,6 +382,16 @@ void initFrontWindowServos();
 void initGarageServo();
 
 /**
+ * @brief Initialize the single left-side door servo with proper settings.
+ *
+ * This function sets up the door servo with PWM frequency,
+ * attaches it to its pin, and moves it to the closed position.
+ *
+ * @return void
+ */
+void initDoorServo();
+
+/**
  * @brief Open the main gate with smooth synchronized movement.
  * 
  * This function moves both gate doors from closed to open position

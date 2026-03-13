@@ -84,9 +84,9 @@ int doorClosedAngle = 150;        /* Closed position angle */
 int doorOpenAngle = 30;           /* Open position angle */
 int doorUsStep = 20;              /* Microsecond step size for smooth movement (matches reference) */
 int doorStepDelay = 1;            /* Delay between steps (ms) */
-int doorCurrentAngle = 150;       /* Current angle of door */
+int doorCurrentAngle = doorClosedAngle;       /* Current angle of door */
 int doorCurrentUs = 0;            /* Current pulse width (initialized in setup) */
-volatile int doorTargetAngle = 150;      /* Target angle set by MQTT */
+volatile int doorTargetAngle = doorClosedAngle;      /* Target angle set by MQTT */
 volatile bool doorNeedsMove = false;     /* Flag indicating door needs to move */
 /**************************************/
 
@@ -310,13 +310,10 @@ void ensureWifi() {
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-  remoteLog("WiFi connecting");
   while (WiFi.status() != WL_CONNECTED) {
     handleRemoteAccess();
     delay(250);
-    remoteLog(".");
   }
-  remoteLogf("WiFi OK. IP: %s", WiFi.localIP().toString().c_str());
 }
 
 void remoteLog(const String &message) {
@@ -614,6 +611,18 @@ void initGarageServo() {
   servoGarageRight.writeMicroseconds(map(garageCurrentUs, SERVO_MIN_US, SERVO_MAX_US, SERVO_MAX_US, SERVO_MIN_US));
 
   remoteLog("--- Garage Door Servos Initialized ---");
+}
+
+void initDoorServo() {
+  servoDoor.setPeriodHertz(50);
+  servoDoor.attach(SERVO_DOOR_PIN, SERVO_MIN_US, SERVO_MAX_US);
+
+  // Single-servo door on the left side: initialize at closed position
+  doorCurrentAngle = doorClosedAngle;
+  doorCurrentUs = map(doorCurrentAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
+  servoDoor.writeMicroseconds(doorCurrentUs);
+
+  remoteLog("--- Door Servo Initialized (Left) ---");
 }
 
 void moveGateTo(int targetAngle) {
