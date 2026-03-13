@@ -4,7 +4,7 @@
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("=== Smart Home ESP32 Starting ===");
+  remoteLog("=== Smart Home ESP32 Starting ===");
   
   // Initialize DHT sensor (DHTesp for ESP32 compatibility)
   dht.setup(DHT_PIN, DHTesp::DHT22);
@@ -31,18 +31,20 @@ void setup() {
   servoDoor.attach(SERVO_DOOR_PIN, SERVO_MIN_US, SERVO_MAX_US);
   doorCurrentUs = map(doorClosedAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
   servoDoor.writeMicroseconds(doorCurrentUs);  // Start closed at 150 degrees
-  Serial.println("--- Door Servo Initialized ---");
+  remoteLog("--- Door Servo Initialized ---");
   
   // Initialize garage servo with smooth movement support
   servoGarage.attach(SERVO_GARAGE_PIN, SERVO_MIN_US, SERVO_MAX_US);
   garageCurrentUs = map(garageClosedAngle, 0, 180, SERVO_MIN_US, SERVO_MAX_US);
   servoGarage.writeMicroseconds(garageCurrentUs);  // Start closed at 150 degrees
-  Serial.println("--- Garage Servo Initialized ---");
+  remoteLog("--- Garage Servo Initialized ---");
   
-  // Connect to WiFi and MQTT
+  // Connect WiFi first, then start OTA/WebSerial, then MQTT
+  ensureWifi();
+  setupRemoteAccess();
   ensureMqtt();
   
-  Serial.println("=== Setup Complete ===");
+  remoteLog("=== Setup Complete ===");
 }
 
 void loop() {
@@ -53,9 +55,11 @@ void loop() {
   // MQTT reconnect with throttling
   if (!client.connected() && (now - lastReconnect > 5000)) {
     lastReconnect = now;
-    Serial.println("[MQTT] Not connected, calling ensureMqtt()...");
+    remoteLog("[MQTT] Not connected, calling ensureMqtt()...");
     ensureMqtt();
   }
+
+  handleRemoteAccess();
   
   // Process MQTT messages
   if (client.connected()) {
@@ -109,8 +113,8 @@ void loop() {
       client.publish(TOPIC_RAIN, buf);
     }
     
-    Serial.printf("Sensors: T=%.1f H=%.1f MQ=%d Flame=%d Light=%d Rain=%d\n", 
-                  t, h, mq, flame, light, rain);
+    remoteLogf("Sensors: T=%.1f H=%.1f MQ=%d Flame=%d Light=%d Rain=%d",
+           t, h, mq, flame, light, rain);
   }
   
   delay(10);

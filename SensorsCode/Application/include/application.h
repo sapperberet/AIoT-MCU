@@ -7,6 +7,7 @@
 
 /***********************Application includes***********************************/
 #include <ArduinoJson.h>
+#include <ArduinoOTA.h>
 #include <DHTesp.h>  // ESP32-compatible DHT library (replaces DHT.h)
 #include <ESP32Servo.h>
 #include <MQ135.h>
@@ -275,6 +276,38 @@ bool discoverBroker(uint32_t timeout_ms);
  * @return void
  */
 void ensureWifi();
+
+/**
+ * @brief Start OTA and WebSerial services after Wi-Fi is connected.
+ *
+ * @return void
+ */
+void setupRemoteAccess();
+
+/**
+ * @brief Handle background remote services each loop iteration.
+ *
+ * @return void
+ */
+void handleRemoteAccess();
+
+/**
+ * @brief Log a message to both USB serial and WebSerial.
+ *
+ * @param message Text message.
+ *
+ * @return void
+ */
+void remoteLog(const String &message);
+
+/**
+ * @brief Formatted logging to both USB serial and WebSerial.
+ *
+ * @param fmt printf-style format string.
+ *
+ * @return void
+ */
+void remoteLogf(const char *fmt, ...);
 
 /**
  * @brief MQTT message callback handler.

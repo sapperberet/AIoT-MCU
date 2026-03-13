@@ -1,5 +1,26 @@
 
 #include "../include/application.h"
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <WebSerial.h>
+#include <cstdarg>
+#include <cstring>
+
+#if __has_include("../include/.secrets.h")
+#include "../include/.secrets.h"
+#endif
+
+static AsyncWebServer webServer(80);
+static bool remoteAccessStarted = false;
+
+static void webSerialReceive(uint8_t *data, size_t len) {
+  String message;
+  for (size_t i = 0; i < len; i++) {
+    message += static_cast<char>(data[i]);
+  }
+  message.trim();
+  Serial.printf("[WebSerial RX] %s\n", message.c_str());
+}
 
 /*********************************MCU globals**********************************/
 
@@ -94,6 +115,10 @@ unsigned long lastSensorPublish = 0; // (Timer alternative for delay)
 #define WIFI_PASS_VALUE ""
 #endif
 
+#ifndef OTA_PASSWORD_VALUE
+#define OTA_PASSWORD_VALUE ""
+#endif
+
 const char *WIFI_SSID = WIFI_SSID_VALUE;
 const char *WIFI_PASS = WIFI_PASS_VALUE;
 /*************************End of Network settings*************/
@@ -170,6 +195,7 @@ bool discoverPassive(uint32_t ms) {
   udp.begin(BEACON_PORT);
   uint32_t t0 = millis();
   while (millis() - t0 < ms) {
+    handleRemoteAccess();
     int p = udp.parsePacket();
     if (p) {
       char buf[256];
@@ -182,7 +208,7 @@ bool discoverPassive(uint32_t ms) {
         return true;
       }
     }
-    delay(30);
+    delay(10);
   }
   udp.stop();
   return false;
@@ -203,6 +229,7 @@ bool discoverActive(uint32_t ms) {
 
   uint32_t t0 = millis(), lastTx = 0;
   while (millis() - t0 < ms) {
+    handleRemoteAccess();
     if (millis() - lastTx > 500) {
       udp.beginPacket(IPAddress(255, 255, 255, 255), BEACON_PORT);
       udp.write((const uint8_t *)qbuf, qlen);
@@ -224,7 +251,7 @@ bool discoverActive(uint32_t ms) {
         return true;
       }
     }
-    delay(30);
+    delay(10);
   }
   udp.stop();
   return false;
@@ -245,10 +272,76 @@ void ensureWifi() {
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.printf("WiFi connecting");
   while (WiFi.status() != WL_CONNECTED) {
+    handleRemoteAccess();
     delay(250);
     Serial.printf(".");
   }
   Serial.printf("\nWiFi OK. IP: %s\n", WiFi.localIP().toString().c_str());
+}
+
+void remoteLog(const String &message) {
+  Serial.println(message);
+  if (remoteAccessStarted && WiFi.status() == WL_CONNECTED) {
+    WebSerial.println(message);
+  }
+}
+
+void remoteLogf(const char *fmt, ...) {
+  char buffer[256];
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(buffer, sizeof(buffer), fmt, args);
+  va_end(args);
+  remoteLog(String(buffer));
+}
+
+void setupRemoteAccess() {
+  if (remoteAccessStarted || WiFi.status() != WL_CONNECTED) {
+    return;
+  }
+
+  webServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html",
+                  "<html><body><h2>SmartHome ESP32</h2><p>Open <a href='/webserial'>WebSerial</a></p></body></html>");
+  });
+
+  WebSerial.begin(&webServer);
+  WebSerial.onMessage(webSerialReceive);
+  webServer.begin();
+
+  ArduinoOTA.setHostname("SmartHomeESP32");
+  if (std::strlen(OTA_PASSWORD_VALUE) > 0) {
+    ArduinoOTA.setPassword(OTA_PASSWORD_VALUE);
+  }
+
+  ArduinoOTA.onStart([]() { remoteLog("[OTA] Start"); });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    static uint8_t lastPercent = 255;
+    uint8_t percent = static_cast<uint8_t>((progress * 100U) / total);
+    if (percent % 10 == 0 && percent != lastPercent) {
+      lastPercent = percent;
+      remoteLogf("[OTA] Progress: %u%%", percent);
+    }
+  });
+  ArduinoOTA.onEnd([]() { remoteLog("[OTA] End"); });
+  ArduinoOTA.onError([](ota_error_t error) {
+    remoteLogf("[OTA] Error[%u]", static_cast<unsigned int>(error));
+  });
+  ArduinoOTA.begin();
+
+  remoteAccessStarted = true;
+  remoteLogf("[REMOTE] WebSerial: http://%s/webserial",
+             WiFi.localIP().toString().c_str());
+  remoteLog("[REMOTE] OTA ready on port 3232");
+}
+
+void handleRemoteAccess() {
+  if (!remoteAccessStarted && WiFi.status() == WL_CONNECTED) {
+    setupRemoteAccess();
+  }
+  if (remoteAccessStarted) {
+    ArduinoOTA.handle();
+  }
 }
 
 void callBack(char *topic, byte *message, unsigned int length) {
@@ -384,7 +477,11 @@ void ensureMqtt() {
 
   if (!discoverBroker(12000)) {
     Serial.println("[MQTT] discovery failed; retry soon");
-    delay(1500);
+    uint32_t waitStart = millis();
+    while (millis() - waitStart < 1500) {
+      handleRemoteAccess();
+      delay(10);
+    }
     return;
   }
 
