@@ -6,7 +6,8 @@ void setup() {
   delay(1000);
 
   // Initialize DHT sensor (DHTesp for ESP32 compatibility)
-  dht.setup(DHT_PIN, DHTesp::DHT22);
+  delay(2000);
+  dht.setup(DHT_PIN, DHT_SENSOR_TYPE);
   
   // Initialize output pins
   pinMode(FAN_IN_PIN, OUTPUT);

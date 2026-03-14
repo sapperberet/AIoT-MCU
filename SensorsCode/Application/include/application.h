@@ -24,7 +24,8 @@
 /**********SENSORS PINS**********/
 #define MQ135_PIN 34 /* Gas sensor */
 #define FLAME_PIN 14 /* Flame sensor */
-#define DHT_PIN 4    /* Temperature and humidity sensor */
+#define DHT_PIN 27   /* Temperature and humidity sensor (safer GPIO on ESP32) */
+#define DHT_SENSOR_TYPE DHTesp::DHT11 /* Configured for DHT11 */
 #define LDR_PIN 35   /* Light sensor */
 #define RAIN_PIN 32  /* Rain sensor */
 

@@ -318,6 +318,7 @@ void ensureWifi() {
 
 void remoteLog(const String &message) {
   bufferLogMessage(message);
+  Serial.println(message);
   if (remoteAccessStarted && WiFi.status() == WL_CONNECTED) {
     WebSerial.println(message);
   }
