@@ -1,5 +1,6 @@
 
 #include "../include/application.h"
+#include <Adafruit_NeoPixel.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSerial.h>
@@ -182,12 +183,39 @@ const char *TOPIC_PUSH_BUTTON_FACE_DETECTION = "home/events/face-detection";
 
 /************************Functions' definition*********************************/
 
-// RGB DISABLED
-// void setRGB(int r, int g, int b) {
-//   analogWrite(RED_PIN, r);
-//   analogWrite(GREEN_PIN, g);
-//   analogWrite(BLUE_PIN, b);
-// }
+/**********RGB STATE**********/
+int rgbR = 0;           /* Current red channel (0-255) */
+int rgbG = 255;             /* Current green channel (0-255) */
+int rgbB = 0;             /* Current blue channel (0-255) */
+int rgbBrightness = 50;   /* Current brightness percentage (0-100) */
+static Adafruit_NeoPixel rgbStrip(RGB_NEOPIXEL_COUNT, RGB_NEOPIXEL_PIN,
+                                  RGB_NEOPIXEL_TYPE);
+/*****************************/
+
+void setRGB(int r, int g, int b) {
+  uint32_t color = rgbStrip.Color(
+      static_cast<uint8_t>(r),
+      static_cast<uint8_t>(g),
+      static_cast<uint8_t>(b));
+  for (uint16_t i = 0; i < RGB_NEOPIXEL_COUNT; i++) {
+    rgbStrip.setPixelColor(i, color);
+  }
+  rgbStrip.show();
+}
+
+void applyRGB() {
+  setRGB(
+    rgbR * rgbBrightness / 100,
+    rgbG * rgbBrightness / 100,
+    rgbB * rgbBrightness / 100
+  );
+}
+
+void initRGB() {
+  rgbStrip.begin();
+  applyRGB();
+  remoteLog("--- RGB LED Initialized ---");
+}
 
 // ------- UDP discovery of broker (copied from esp_face_detection) -------
 IPAddress subnetBroadcast(IPAddress ip, IPAddress mask) {
@@ -426,10 +454,31 @@ void callBack(char *topic, byte *message, unsigned int length) {
     }
   }
 
-  /* RGB - DISABLED */
-  // if (topicStr == TOPIC_LIGHT_RGB) {
-  //   ...
-  // }
+  /* RGB LED STRIP */
+  if (topicStr == TOPIC_LIGHT_RGB) {
+    if (messageTemp.startsWith("b ")) {
+      // Brightness command: 'b 50' → 50%
+      int brightness = messageTemp.substring(2).toInt();
+      rgbBrightness = constrain(brightness, 0, 100);
+      applyRGB();
+      remoteLogf("[RGB] Brightness set to %d%%", rgbBrightness);
+    } else if (messageTemp.startsWith("c #")) {
+      // Color command: 'c #RRGGBB'
+      String hex = messageTemp.substring(3);
+      hex.trim();
+      if (hex.length() == 6) {
+        rgbR = (int)strtol(hex.substring(0, 2).c_str(), nullptr, 16);
+        rgbG = (int)strtol(hex.substring(2, 4).c_str(), nullptr, 16);
+        rgbB = (int)strtol(hex.substring(4, 6).c_str(), nullptr, 16);
+        applyRGB();
+        remoteLogf("[RGB] Color set to #%s", hex.c_str());
+      }
+    } else if (messageTemp == "off") {
+      rgbBrightness = 0;
+      applyRGB();
+      remoteLog("[RGB] Off");
+    }
+  }
 
   /* BUZZER (Active LOW - LOW=ON, HIGH=OFF) */
   if (topicStr == TOPIC_BUZZER) {

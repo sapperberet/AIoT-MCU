@@ -40,10 +40,10 @@
 #define LED_FLOOR1 25    /* First floor LED */
 #define LED_FLOOR2 26    /* Second floor LED */
 
-/**********RGB STREP - DISABLED**********/
-// #define RED_PIN 13   /* R color */
-// #define GREEN_PIN 16 /* G color */
-// #define BLUE_PIN 27  /* B color */
+/**********RGB LED STRIP**********/
+#define RGB_NEOPIXEL_PIN 15      /* NeoPixel data pin */
+#define RGB_NEOPIXEL_COUNT 47     /* Number of NeoPixel LEDs */
+#define RGB_NEOPIXEL_TYPE (NEO_BRG + NEO_KHZ800) /* Adjust if color order differs */
 
 /**********Servo MOTORS**********/
 #define SERVO_FRONT_WIN_LEFT_PIN 2    /* Left servo for front window - GPIO 2 OK for output */
@@ -202,6 +202,8 @@ extern const char *TOPIC_PUSH_BUTTON_FACE_DETECTION;
  * @return void
  */
 void setRGB(int r, int g, int b);
+void applyRGB();
+void initRGB();
 
 /**
  * @brief Calculate the broadcast IP address based on IP and subnet mask.

@@ -34,6 +34,7 @@ void setup() {
   initFrontWindowServos();
   initGarageServo();
   initDoorServo();
+  initRGB();
 
   // Connect MQTT after network and WebSerial are ready
   ensureMqtt();
