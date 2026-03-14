@@ -436,21 +436,21 @@ void callBack(char *topic, byte *message, unsigned int length) {
     }
   }
 
-  /* LIGHT FLOOR1 */
+  /* LIGHT FLOOR1 (Active LOW - LOW=ON, HIGH=OFF) */
   if (topicStr == TOPIC_LIGHT_FLOOR1) {
     if (messageTemp == "on") {
-      digitalWrite(LED_FLOOR1, HIGH);
-    } else if (messageTemp == "off") {
       digitalWrite(LED_FLOOR1, LOW);
+    } else if (messageTemp == "off") {
+      digitalWrite(LED_FLOOR1, HIGH);
     }
   }
 
-  /* FLOOR2 */
+  /* LIGHT FLOOR2 (Active LOW - LOW=ON, HIGH=OFF) */
   if (topicStr == TOPIC_LIGHT_FLOOR2) {
     if (messageTemp == "on") {
-      digitalWrite(LED_FLOOR2, HIGH);
-    } else if (messageTemp == "off") {
       digitalWrite(LED_FLOOR2, LOW);
+    } else if (messageTemp == "off") {
+      digitalWrite(LED_FLOOR2, HIGH);
     }
   }
 

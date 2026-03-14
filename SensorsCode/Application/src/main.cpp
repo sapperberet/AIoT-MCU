@@ -18,6 +18,8 @@ void setup() {
   digitalWrite(BUZZER_PIN, HIGH);   // Start OFF (active LOW)
   pinMode(LED_FLOOR1, OUTPUT);
   pinMode(LED_FLOOR2, OUTPUT);
+  digitalWrite(LED_FLOOR1, HIGH);   // Start OFF (active LOW)
+  digitalWrite(LED_FLOOR2, HIGH);   // Start OFF (active LOW)
   
   // Initialize input pins
   pinMode(FLAME_PIN, INPUT);
