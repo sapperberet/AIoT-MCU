@@ -28,6 +28,16 @@
 #define DHT_SENSOR_TYPE DHTesp::DHT11 /* Configured for DHT11 */
 #define LDR_PIN 35   /* Light sensor */
 #define RAIN_PIN 32  /* Rain sensor */
+#define VOLTAGE_PIN 33 /* Voltage sensor analog output */
+#define CURRENT_PIN 39 /* Current sensor analog output */
+
+/* ADC conversion/calibration settings (adjust to your hardware) */
+#define ADC_REF_VOLTAGE 3.3f
+#define ADC_MAX_VALUE 4095.0f
+#define VOLTAGE_DIVIDER_RATIO 5.0f      /* Example divider scale (Vout = Vin / 5) */
+#define CURRENT_ZERO_VOLTAGE 1.65f      /* ACS712/analog current sensor zero offset */
+#define CURRENT_SENSITIVITY 0.100f      /* Volts per ampere (ACS712-20A ≈ 0.100) */
+#define CURRENT_NOISE_THRESHOLD 0.05f   /* Clamp tiny noise around zero current */
 
 /**********FAN (Active LOW)**********/
 #define FAN_IN_PIN 5   /* Fan inward flow - active LOW */

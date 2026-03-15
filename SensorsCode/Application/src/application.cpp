@@ -18,6 +18,12 @@ static String logBuffer[LOG_BUFFER_CAPACITY];
 static size_t logBufferStart = 0;
 static size_t logBufferCount = 0;
 
+static bool isSerialMonitorConnected() {
+  // For native USB boards, `Serial` becomes true when a host monitor is open.
+  // For UART-bridge boards this may always be true, which is acceptable.
+  return static_cast<bool>(Serial);
+}
+
 static void bufferLogMessage(const String &message) {
   size_t index = (logBufferStart + logBufferCount) % LOG_BUFFER_CAPACITY;
   logBuffer[index] = message;
@@ -184,10 +190,10 @@ const char *TOPIC_PUSH_BUTTON_FACE_DETECTION = "home/events/face-detection";
 /************************Functions' definition*********************************/
 
 /**********RGB STATE**********/
-int rgbR = 0;           /* Current red channel (0-255) */
+int rgbR = 255;           /* Current red channel (0-255) */
 int rgbG = 255;             /* Current green channel (0-255) */
-int rgbB = 0;             /* Current blue channel (0-255) */
-int rgbBrightness = 50;   /* Current brightness percentage (0-100) */
+int rgbB = 255;             /* Current blue channel (0-255) */
+int rgbBrightness = 15;   /* Current brightness percentage (0-100) */
 static Adafruit_NeoPixel rgbStrip(RGB_NEOPIXEL_COUNT, RGB_NEOPIXEL_PIN,
                                   RGB_NEOPIXEL_TYPE);
 /*****************************/
@@ -346,8 +352,9 @@ void ensureWifi() {
 
 void remoteLog(const String &message) {
   bufferLogMessage(message);
-  Serial.println(message);
-  if (remoteAccessStarted && WiFi.status() == WL_CONNECTED) {
+  if (isSerialMonitorConnected()) {
+    Serial.println(message);
+  } else if (remoteAccessStarted && WiFi.status() == WL_CONNECTED) {
     WebSerial.println(message);
   }
 }

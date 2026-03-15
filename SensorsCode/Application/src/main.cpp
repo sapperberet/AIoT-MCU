@@ -24,6 +24,8 @@ void setup() {
   // Initialize input pins
   pinMode(FLAME_PIN, INPUT);
   pinMode(RAIN_PIN, INPUT);
+  pinMode(VOLTAGE_PIN, INPUT);
+  pinMode(CURRENT_PIN, INPUT);
 
   // Start network and remote access before first application log
   ensureWifi();
@@ -83,6 +85,18 @@ void loop() {
     int flame = digitalRead(FLAME_PIN);
     int light = analogRead(LDR_PIN);
     int rain = digitalRead(RAIN_PIN);
+    int voltageRaw = analogRead(VOLTAGE_PIN);
+    int currentRaw = analogRead(CURRENT_PIN);
+
+    float sensedVoltage = (static_cast<float>(voltageRaw) / ADC_MAX_VALUE) *
+                          ADC_REF_VOLTAGE * VOLTAGE_DIVIDER_RATIO;
+    float currentVoltage = (static_cast<float>(currentRaw) / ADC_MAX_VALUE) *
+                           ADC_REF_VOLTAGE;
+    float sensedCurrent = (currentVoltage - CURRENT_ZERO_VOLTAGE) /
+                          CURRENT_SENSITIVITY;
+    if (fabsf(sensedCurrent) < CURRENT_NOISE_THRESHOLD) {
+      sensedCurrent = 0.0f;
+    }
     
     // Publish each sensor to its own topic
     if (client.connected()) {
@@ -111,10 +125,18 @@ void loop() {
       // Rain
       snprintf(buf, sizeof(buf), "%d", rain);
       client.publish(TOPIC_RAIN, buf);
+
+      // Voltage
+      snprintf(buf, sizeof(buf), "%.2f", sensedVoltage);
+      client.publish(TOPIC_VOLTAGE, buf);
+
+      // Current
+      snprintf(buf, sizeof(buf), "%.2f", sensedCurrent);
+      client.publish(TOPIC_CURRENT, buf);
     }
     
-    remoteLogf("Sensors: T=%.1f H=%.1f MQ=%d Flame=%d Light=%d Rain=%d",
-           t, h, mq, flame, light, rain);
+    remoteLogf("Sensors: T=%.1f H=%.1f MQ=%d Flame=%d Light=%d Rain=%d V=%.2f I=%.2f",
+           t, h, mq, flame, light, rain, sensedVoltage, sensedCurrent);
   }
   
   delay(10);
