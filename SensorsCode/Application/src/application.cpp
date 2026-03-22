@@ -169,6 +169,17 @@ const char *TOPIC_MOTOR_GARAGE = "home/actuators/motors/garage";
 const char *TOPIC_MOTOR_FRONT_WIN = "home/actuators/motors/frontwindow";
 const char *TOPIC_MOTOR_DOOR = "home/actuators/motors/door";
 const char *TOPIC_MOTOR_GATE = "home/actuators/motors/gate";
+
+/* Actuators state topics */
+const char *TOPIC_FAN_STATE = "home/actuators/fan/state";
+const char *TOPIC_LIGHT_FLOOR1_STATE = "home/actuators/lights/floor1/state";
+const char *TOPIC_LIGHT_FLOOR2_STATE = "home/actuators/lights/floor2/state";
+const char *TOPIC_LIGHT_RGB_STATE = "home/actuators/lights/rgb/state";
+const char *TOPIC_BUZZER_STATE = "home/actuators/buzzer/state";
+const char *TOPIC_MOTOR_GARAGE_STATE = "home/actuators/motors/garage/state";
+const char *TOPIC_MOTOR_FRONT_WIN_STATE = "home/actuators/motors/frontwindow/state";
+const char *TOPIC_MOTOR_DOOR_STATE = "home/actuators/motors/door/state";
+const char *TOPIC_MOTOR_GATE_STATE = "home/actuators/motors/gate/state";
 /************************************/
 
 /************Sensors topics***********/
@@ -197,6 +208,62 @@ int rgbBrightness = 15;   /* Current brightness percentage (0-100) */
 static Adafruit_NeoPixel rgbStrip(RGB_NEOPIXEL_COUNT, RGB_NEOPIXEL_PIN,
                                   RGB_NEOPIXEL_TYPE);
 /*****************************/
+
+/* Actuators cached states for MQTT state topics */
+static String fanState = "off";
+static String floor1State = "off";
+static String floor2State = "off";
+static String buzzerState = "off";
+
+static const char *motorStateFromAngle(int currentAngle, int openAngle, int closedAngle) {
+  if (currentAngle == openAngle) {
+    return "open";
+  }
+  if (currentAngle == closedAngle) {
+    return "close";
+  }
+  return "partial";
+}
+
+static void publishActuatorState(const char *topic, const char *state) {
+  if (!client.connected()) {
+    return;
+  }
+  client.publish(topic, state, true);
+}
+
+static void publishRgbState() {
+  if (!client.connected()) {
+    return;
+  }
+
+  char colorHex[8];
+  snprintf(colorHex, sizeof(colorHex), "#%02X%02X%02X", rgbR, rgbG, rgbB);
+
+  StaticJsonDocument<96> doc;
+  doc["brightness"] = rgbBrightness;
+  doc["color"] = colorHex;
+
+  char payload[96];
+  serializeJson(doc, payload, sizeof(payload));
+  client.publish(TOPIC_LIGHT_RGB_STATE, payload, true);
+}
+
+static void publishAllActuatorStates() {
+  publishActuatorState(TOPIC_FAN_STATE, fanState.c_str());
+  publishActuatorState(TOPIC_LIGHT_FLOOR1_STATE, floor1State.c_str());
+  publishActuatorState(TOPIC_LIGHT_FLOOR2_STATE, floor2State.c_str());
+  publishRgbState();
+  publishActuatorState(TOPIC_BUZZER_STATE, buzzerState.c_str());
+  publishActuatorState(TOPIC_MOTOR_GARAGE_STATE,
+                       motorStateFromAngle(garageCurrentAngle, garageOpenAngle, garageClosedAngle));
+  publishActuatorState(TOPIC_MOTOR_FRONT_WIN_STATE,
+                       motorStateFromAngle(frontWinCurrentAngle, frontWinOpenAngle, frontWinClosedAngle));
+  publishActuatorState(TOPIC_MOTOR_DOOR_STATE,
+                       motorStateFromAngle(doorCurrentAngle, doorOpenAngle, doorClosedAngle));
+  publishActuatorState(TOPIC_MOTOR_GATE_STATE,
+                       motorStateFromAngle(gateCurrentAngle, gateOpenAngle, gateClosedAngle));
+}
 
 void setRGB(int r, int g, int b) {
   uint32_t color = rgbStrip.Color(
@@ -434,31 +501,44 @@ void callBack(char *topic, byte *message, unsigned int length) {
     if (messageTemp == "in") {
       digitalWrite(FAN_OUT_PIN, HIGH);  // Turn off outward first
       digitalWrite(FAN_IN_PIN, LOW);    // Turn on inward
+      fanState = "in";
     } else if (messageTemp == "out") {
       digitalWrite(FAN_IN_PIN, HIGH);   // Turn off inward first
       digitalWrite(FAN_OUT_PIN, LOW);   // Turn on outward
+      fanState = "out";
     } else if (messageTemp == "off") {
       digitalWrite(FAN_IN_PIN, HIGH);   // Turn off both
       digitalWrite(FAN_OUT_PIN, HIGH);
+      fanState = "off";
     }
+
+    publishActuatorState(TOPIC_FAN_STATE, fanState.c_str());
   }
 
   /* LIGHT FLOOR1 (Active LOW - LOW=ON, HIGH=OFF) */
   if (topicStr == TOPIC_LIGHT_FLOOR1) {
     if (messageTemp == "on") {
       digitalWrite(LED_FLOOR1, LOW);
+      floor1State = "on";
     } else if (messageTemp == "off") {
       digitalWrite(LED_FLOOR1, HIGH);
+      floor1State = "off";
     }
+
+    publishActuatorState(TOPIC_LIGHT_FLOOR1_STATE, floor1State.c_str());
   }
 
   /* LIGHT FLOOR2 (Active LOW - LOW=ON, HIGH=OFF) */
   if (topicStr == TOPIC_LIGHT_FLOOR2) {
     if (messageTemp == "on") {
       digitalWrite(LED_FLOOR2, LOW);
+      floor2State = "on";
     } else if (messageTemp == "off") {
       digitalWrite(LED_FLOOR2, HIGH);
+      floor2State = "off";
     }
+
+    publishActuatorState(TOPIC_LIGHT_FLOOR2_STATE, floor2State.c_str());
   }
 
   /* RGB LED STRIP */
@@ -485,14 +565,22 @@ void callBack(char *topic, byte *message, unsigned int length) {
       applyRGB();
       remoteLog("[RGB] Off");
     }
+
+    publishRgbState();
   }
 
   /* BUZZER (Active LOW - LOW=ON, HIGH=OFF) */
   if (topicStr == TOPIC_BUZZER) {
-    if (messageTemp == "on")
+    if (messageTemp == "on") {
       digitalWrite(BUZZER_PIN, LOW);   // Active LOW: LOW = ON
-    if (messageTemp == "off")
+      buzzerState = "on";
+    }
+    if (messageTemp == "off") {
       digitalWrite(BUZZER_PIN, HIGH);  // Active LOW: HIGH = OFF
+      buzzerState = "off";
+    }
+
+    publishActuatorState(TOPIC_BUZZER_STATE, buzzerState.c_str());
   }
 
   /* MOTORS */
@@ -607,6 +695,7 @@ void ensureMqtt() {
     client.subscribe(TOPIC_MOTOR_FRONT_WIN); /*Subsribing to front window*/
     client.subscribe(TOPIC_MOTOR_DOOR);      /*Subsribing to motor door*/
     client.subscribe(TOPIC_MOTOR_GATE);       /*Subscribing to main gate*/
+    publishAllActuatorStates();
   } else {
     remoteLogf("[MQTT] Connect failed, rc=%d", client.state());
   }
@@ -788,6 +877,8 @@ void processServoCommands() {
     gateNeedsMove = false;  // Clear flag first to allow new commands
     moveGateTo(gateTargetAngle);
     remoteLog("[SERVO] Gate move complete");
+    publishActuatorState(TOPIC_MOTOR_GATE_STATE,
+                         motorStateFromAngle(gateCurrentAngle, gateOpenAngle, gateClosedAngle));
   }
   
   // Process front window movement if requested
@@ -796,6 +887,8 @@ void processServoCommands() {
     frontWinNeedsMove = false;  // Clear flag first to allow new commands
     moveFrontWindowTo(frontWinTargetAngle);
     remoteLog("[SERVO] Front window move complete");
+    publishActuatorState(TOPIC_MOTOR_FRONT_WIN_STATE,
+                         motorStateFromAngle(frontWinCurrentAngle, frontWinOpenAngle, frontWinClosedAngle));
   }
   
   // Process door movement if requested
@@ -804,6 +897,8 @@ void processServoCommands() {
     doorNeedsMove = false;
     moveDoorTo(doorTargetAngle);
     remoteLog("[SERVO] Door move complete");
+    publishActuatorState(TOPIC_MOTOR_DOOR_STATE,
+                         motorStateFromAngle(doorCurrentAngle, doorOpenAngle, doorClosedAngle));
   }
   
   // Process garage movement if requested
@@ -812,6 +907,8 @@ void processServoCommands() {
     garageNeedsMove = false;
     moveGarageTo(garageTargetAngle);
     remoteLog("[SERVO] Garage move complete");
+    publishActuatorState(TOPIC_MOTOR_GARAGE_STATE,
+                         motorStateFromAngle(garageCurrentAngle, garageOpenAngle, garageClosedAngle));
   }
 }
 

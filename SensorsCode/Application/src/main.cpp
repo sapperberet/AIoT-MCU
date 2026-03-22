@@ -84,7 +84,8 @@ void loop() {
     int mq = analogRead(MQ135_PIN);
     int flame = digitalRead(FLAME_PIN);
     int light = analogRead(LDR_PIN);
-    int rain = digitalRead(RAIN_PIN);
+    int rainRaw = digitalRead(RAIN_PIN);
+    int rain = (rainRaw == LOW) ? 1 : 0; // Dry=0, Wet=1 (active-LOW rain modules)
     int voltageRaw = analogRead(VOLTAGE_PIN);
     int currentRaw = analogRead(CURRENT_PIN);
 

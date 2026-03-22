@@ -182,6 +182,18 @@ extern const char *TOPIC_BUZZER;
 extern const char *TOPIC_MOTOR_GARAGE;
 extern const char *TOPIC_MOTOR_FRONT_WIN;
 extern const char *TOPIC_MOTOR_DOOR;
+extern const char *TOPIC_MOTOR_GATE;
+
+/* Actuator state topics */
+extern const char *TOPIC_FAN_STATE;
+extern const char *TOPIC_LIGHT_FLOOR1_STATE;
+extern const char *TOPIC_LIGHT_FLOOR2_STATE;
+extern const char *TOPIC_LIGHT_RGB_STATE;
+extern const char *TOPIC_BUZZER_STATE;
+extern const char *TOPIC_MOTOR_GARAGE_STATE;
+extern const char *TOPIC_MOTOR_FRONT_WIN_STATE;
+extern const char *TOPIC_MOTOR_DOOR_STATE;
+extern const char *TOPIC_MOTOR_GATE_STATE;
 /********************************************/
 
 /****************Sensors topics**************/
@@ -534,9 +546,6 @@ void closeGarage();
 void processServoCommands();
 
 /************End of functions' declaration********************/
-
-/**********MQTT topic for main gate**********/
-extern const char *TOPIC_MOTOR_GATE;
 
 #endif /* DOIT_ESP_32_DIVKIT_V1 == MCU_TYPE */
 
