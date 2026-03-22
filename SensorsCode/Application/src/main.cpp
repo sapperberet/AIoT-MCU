@@ -105,35 +105,35 @@ void loop() {
       
       // Temperature
       snprintf(buf, sizeof(buf), "%.1f", isnan(t) ? 0.0f : t);
-      client.publish(TOPIC_TEMPERATURE, buf);
+      client.publish(TOPIC_TEMPERATURE, buf, true);
       
       // Humidity
       snprintf(buf, sizeof(buf), "%.1f", isnan(h) ? 0.0f : h);
-      client.publish(TOPIC_HUMIDITY, buf);
+      client.publish(TOPIC_HUMIDITY, buf, true);
       
       // Gas (MQ135)
       snprintf(buf, sizeof(buf), "%d", mq);
-      client.publish(TOPIC_GAS, buf);
+      client.publish(TOPIC_GAS, buf, true);
       
       // Flame
       snprintf(buf, sizeof(buf), "%d", flame);
-      client.publish(TOPIC_FLAME, buf);
+      client.publish(TOPIC_FLAME, buf, true);
       
       // Light (LDR)
       snprintf(buf, sizeof(buf), "%d", light);
-      client.publish(TOPIC_LDR, buf);
+      client.publish(TOPIC_LDR, buf, true);
       
       // Rain
       snprintf(buf, sizeof(buf), "%d", rain);
-      client.publish(TOPIC_RAIN, buf);
+      client.publish(TOPIC_RAIN, buf, true);
 
       // Voltage
       snprintf(buf, sizeof(buf), "%.2f", sensedVoltage);
-      client.publish(TOPIC_VOLTAGE, buf);
+      client.publish(TOPIC_VOLTAGE, buf, true);
 
       // Current
       snprintf(buf, sizeof(buf), "%.2f", sensedCurrent);
-      client.publish(TOPIC_CURRENT, buf);
+      client.publish(TOPIC_CURRENT, buf, true);
     }
     
     remoteLogf("Sensors: T=%.1f H=%.1f MQ=%d Flame=%d Light=%d Rain=%d V=%.2f I=%.2f",
